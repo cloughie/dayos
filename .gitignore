@@ -1,0 +1,23 @@
+# dependencies
+/node_modules
+
+# next.js
+/.next/
+/out/
+
+# env files — never commit these
+.env
+.env.local
+.env.*.local
+
+# build artifacts
+tsconfig.tsbuildinfo
+
+# local tooling
+.claude/
+
+# OS
+.DS_Store
+
+# debug
+npm-debug.log*

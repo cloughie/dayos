@@ -551,7 +551,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
                 onClick={clearCheckIn}
                 className="flex-1 py-2.5 rounded-xl bg-white text-sm text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
               >
-                Start new check-in
+                Start
               </button>
             </div>
           </div>

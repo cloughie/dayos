@@ -43,7 +43,8 @@ export default function PlanPanel({ isOpen, onClose, plan }: PlanPanelProps) {
             </p>
           ) : (
             <p className="text-sm text-zinc-500 text-center py-8">
-              No plan saved yet.{'\n'}Ask the assistant to create your daily plan, then tap &ldquo;Save as today&apos;s plan&rdquo;.
+              This is where your day lives.<br />
+              Once your plan is created, you can save it here and return to it anytime.
             </p>
           )}
         </div>

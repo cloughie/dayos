@@ -489,7 +489,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={clearCheckIn}
+              onClick={handleNewCheckIn}
               className="flex-1 py-2 rounded-xl bg-white text-xs font-medium text-zinc-900 hover:bg-zinc-200 transition-colors"
             >
               Start new check-in

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef } from 'react'
 import { flushSync } from 'react-dom'
 import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
@@ -10,27 +10,30 @@ const STORAGE_KEY = 'dayos_conversation'
 
 // ─── Message bubble ────────────────────────────────────────────────────────
 
-function MessageBubble({ message }: { message: Message }) {
-  const isUser = message.role === 'user'
+const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
+  ({ message }, ref) => {
+    const isUser = message.role === 'user'
 
-  if (isUser) {
+    if (isUser) {
+      return (
+        <div ref={ref} className="flex justify-end mb-3">
+          <div className="max-w-[80%] bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-3">
+            <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+          </div>
+        </div>
+      )
+    }
+
     return (
-      <div className="flex justify-end mb-3">
-        <div className="max-w-[80%] bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-3">
-          <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
+      <div ref={ref} className="flex justify-start mb-3">
+        <div className="max-w-[88%]">
+          <p className="text-zinc-100 text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
         </div>
       </div>
     )
   }
-
-  return (
-    <div className="flex justify-start mb-3">
-      <div className="max-w-[88%]">
-        <p className="text-zinc-100 text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
-      </div>
-    </div>
-  )
-}
+)
+MessageBubble.displayName = 'MessageBubble'
 
 // ─── Typing indicator ──────────────────────────────────────────────────────
 
@@ -63,9 +66,14 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
+  const lastAssistantRef = useRef<HTMLDivElement>(null)
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const prevLoadingRef = useRef(false)
+  const initialScrollDoneRef = useRef(false)
+  const [showScrollButton, setShowScrollButton] = useState(false)
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -89,10 +97,36 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     setHasSpeechSupport(typeof window !== 'undefined' && !!navigator.mediaDevices?.getUserMedia)
   }, [])
 
-  // Auto-scroll
+  // Scroll to bottom once on initial load from localStorage
   useEffect(() => {
+    if (messages.length > 0 && !initialScrollDoneRef.current) {
+      messagesEndRef.current?.scrollIntoView()
+      initialScrollDoneRef.current = true
+    }
+  }, [messages])
+
+  // Scroll behaviour on loading transitions
+  useEffect(() => {
+    if (isLoading && !prevLoadingRef.current) {
+      // Started loading: scroll down to show the typing indicator
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
+    } else if (!isLoading && prevLoadingRef.current) {
+      // Response arrived: scroll to the top of the new assistant message
+      lastAssistantRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    }
+    prevLoadingRef.current = isLoading
+  }, [isLoading])
+
+  function handleScroll() {
+    const el = scrollContainerRef.current
+    if (!el) return
+    const distanceFromBottom = el.scrollHeight - el.scrollTop - el.clientHeight
+    setShowScrollButton(distanceFromBottom > 80)
+  }
+
+  function scrollToBottom() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages, isLoading])
+  }
 
   // Auto-resize textarea
   useEffect(() => {
@@ -267,7 +301,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   // ─── Render ────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex flex-col h-screen h-[100dvh] bg-zinc-950">
+    <div className="relative flex flex-col h-screen h-[100dvh] bg-zinc-950">
       {/* Header */}
       <header className="flex items-center justify-between px-4 py-4 border-b border-zinc-900 safe-top shrink-0">
         <div className="flex items-center gap-3">
@@ -304,15 +338,41 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
       </header>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto px-4 py-4">
-        {messages.map((message) => (
-          <MessageBubble key={message.id} message={message} />
-        ))}
+      <div
+        ref={scrollContainerRef}
+        onScroll={handleScroll}
+        className="flex-1 overflow-y-auto px-4 py-4"
+      >
+        {messages.map((message, i) => {
+          const isLastAssistant = message.role === 'assistant' && i === messages.length - 1
+          return (
+            <MessageBubble
+              key={message.id}
+              message={message}
+              ref={isLastAssistant ? lastAssistantRef : null}
+            />
+          )
+        })}
 
         {isLoading && <TypingIndicator />}
 
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Jump to bottom */}
+      {showScrollButton && (
+        <button
+          type="button"
+          onClick={scrollToBottom}
+          className="absolute bottom-20 right-4 z-10 w-8 h-8 flex items-center justify-center bg-zinc-800 border border-zinc-700 rounded-full shadow-lg text-zinc-400 hover:text-white transition-colors"
+          aria-label="Scroll to bottom"
+        >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <line x1="12" y1="5" x2="12" y2="19" />
+            <polyline points="19 12 12 19 5 12" />
+          </svg>
+        </button>
+      )}
 
       {/* Input bar */}
       <div className="shrink-0 border-t border-zinc-900 bg-zinc-950 px-3 py-3 safe-bottom">

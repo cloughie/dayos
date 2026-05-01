@@ -338,6 +338,11 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         </div>
       </header>
 
+      {/* Device-only storage notice */}
+      <p className="shrink-0 text-center text-[10px] text-zinc-700 py-1 px-4">
+        Saved on this device only. Avoid switching devices or logging out during a check-in.
+      </p>
+
       {/* Messages */}
       <div
         ref={scrollContainerRef}

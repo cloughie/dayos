@@ -66,6 +66,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null)
+  const [newCheckInConfirm, setNewCheckInConfirm] = useState(false)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
 
@@ -145,11 +146,20 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   // ─── New check-in ─────────────────────────────────────────────────────────
 
   function handleNewCheckIn() {
-    if (messages.length > 0 && !confirm('Start a new check-in? This will clear the current conversation and plan.')) return
+    if (savedPlan) {
+      setNewCheckInConfirm(true)
+      return
+    }
+    if (messages.length > 0 && !confirm('Start a new check-in? This will clear the current conversation.')) return
+    clearCheckIn()
+  }
+
+  function clearCheckIn() {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(PLAN_KEY)
     setMessages([])
     setSavedPlan(null)
+    setNewCheckInConfirm(false)
   }
 
   function savePlan(content: string) {
@@ -514,6 +524,39 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
           </div>
         )}
       </div>
+
+      {/* New check-in confirmation */}
+      {newCheckInConfirm && (
+        <>
+          <div
+            className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+            onClick={() => setNewCheckInConfirm(false)}
+            aria-hidden="true"
+          />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-4 max-w-sm mx-auto">
+            <div>
+              <h2 className="text-base font-semibold text-white mb-1">Start a new check-in?</h2>
+              <p className="text-sm text-zinc-400">This will replace your current plan.</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setNewCheckInConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-300 hover:text-white hover:border-zinc-500 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={clearCheckIn}
+                className="flex-1 py-2.5 rounded-xl bg-white text-sm text-zinc-900 font-medium hover:bg-zinc-200 transition-colors"
+              >
+                Start new check-in
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Plan panel */}
       <PlanPanel

@@ -4,9 +4,11 @@ import { useState, useEffect, useRef, useCallback, forwardRef } from 'react'
 import { flushSync } from 'react-dom'
 import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
+import PlanPanel, { type SavedPlan } from '@/components/ui/PlanPanel'
 import type { Message } from '@/lib/types'
 
 const STORAGE_KEY = 'dayos_conversation'
+const PLAN_KEY = 'dayos_plan'
 
 // ─── Message bubble ────────────────────────────────────────────────────────
 
@@ -62,6 +64,8 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [isLoading, setIsLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
+  const [planOpen, setPlanOpen] = useState(false)
+  const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
 
@@ -80,11 +84,11 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      try {
-        setMessages(JSON.parse(stored))
-      } catch {
-        // ignore malformed storage
-      }
+      try { setMessages(JSON.parse(stored)) } catch { /* ignore malformed */ }
+    }
+    const storedPlan = localStorage.getItem(PLAN_KEY)
+    if (storedPlan) {
+      try { setSavedPlan(JSON.parse(storedPlan)) } catch { /* ignore malformed */ }
     }
   }, [])
 
@@ -141,9 +145,21 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   // ─── New check-in ─────────────────────────────────────────────────────────
 
   function handleNewCheckIn() {
-    if (messages.length > 0 && !confirm('Start a new check-in? This will clear the current conversation.')) return
+    if (messages.length > 0 && !confirm('Start a new check-in? This will clear the current conversation and plan.')) return
     localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(PLAN_KEY)
     setMessages([])
+    setSavedPlan(null)
+  }
+
+  function savePlan(content: string) {
+    const plan: SavedPlan = {
+      content,
+      date: new Date().toISOString().split('T')[0],
+      savedAt: new Date().toISOString(),
+    }
+    localStorage.setItem(PLAN_KEY, JSON.stringify(plan))
+    setSavedPlan(plan)
   }
 
   // ─── Send message ─────────────────────────────────────────────────────────
@@ -316,6 +332,18 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         </div>
         <div className="flex items-center gap-1">
           <button
+            onClick={() => setPlanOpen(true)}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
+            aria-label="Today's Plan"
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <rect x="5" y="2" width="14" height="20" rx="2" />
+              <line x1="9" y1="7" x2="15" y2="7" />
+              <line x1="9" y1="11" x2="15" y2="11" />
+              <line x1="9" y1="15" x2="13" y2="15" />
+            </svg>
+          </button>
+          <button
             onClick={() => setMemoryOpen(true)}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             aria-label="Memory"
@@ -352,11 +380,23 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         {messages.map((message, i) => {
           const isLastAssistant = message.role === 'assistant' && i === messages.length - 1
           return (
-            <MessageBubble
-              key={message.id}
-              message={message}
-              ref={isLastAssistant ? lastAssistantRef : null}
-            />
+            <div key={message.id}>
+              <MessageBubble
+                message={message}
+                ref={isLastAssistant ? lastAssistantRef : null}
+              />
+              {isLastAssistant && !isLoading && (
+                <div className="flex justify-start mb-4 -mt-1 pl-1">
+                  <button
+                    type="button"
+                    onClick={() => savePlan(message.content)}
+                    className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                  >
+                    {savedPlan ? 'Update today\'s plan' : 'Save as today\'s plan'}
+                  </button>
+                </div>
+              )}
+            </div>
           )
         })}
 
@@ -474,6 +514,13 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
           </div>
         )}
       </div>
+
+      {/* Plan panel */}
+      <PlanPanel
+        isOpen={planOpen}
+        onClose={() => setPlanOpen(false)}
+        plan={savedPlan}
+      />
 
       {/* Settings modal */}
       <SettingsModal

@@ -200,11 +200,10 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   // ─── New check-in ─────────────────────────────────────────────────────────
 
   function handleNewCheckIn() {
-    if (savedPlan) {
+    if (messages.length > 0) {
       setNewCheckInConfirm(true)
       return
     }
-    if (messages.length > 0 && !confirm('Start a new check-in? This will clear the current conversation.')) return
     clearCheckIn()
   }
 

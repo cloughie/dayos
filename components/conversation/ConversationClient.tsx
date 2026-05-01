@@ -62,7 +62,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [isLoading, setIsLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
-  const [isListening, setIsListening] = useState(false)
+  const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -71,6 +71,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
+  const cancelledRef = useRef(false)
   const prevLoadingRef = useRef(false)
   const initialScrollDoneRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -237,65 +238,65 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
 
   // ─── Voice input ──────────────────────────────────────────────────────────
 
-  async function toggleListening() {
-    console.log('[Voice] Mic button clicked, isListening:', isListening)
-
-    if (isListening) {
-      console.log('[Voice] Stopping recording')
-      mediaRecorderRef.current?.stop()
-      setIsListening(false)
-      return
-    }
-
+  async function startRecording() {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       const mimeType = MediaRecorder.isTypeSupported('audio/webm') ? 'audio/webm' : 'audio/ogg'
       const recorder = new MediaRecorder(stream, { mimeType })
       audioChunksRef.current = []
+      cancelledRef.current = false
 
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) audioChunksRef.current.push(e.data)
       }
 
       recorder.onstop = async () => {
-        // Stop all mic tracks to release the mic indicator
         stream.getTracks().forEach(t => t.stop())
 
-        const blob = new Blob(audioChunksRef.current, { type: mimeType })
-        console.log('[Voice] Recording stopped, blob size:', blob.size, 'type:', blob.type)
+        if (cancelledRef.current) return // discarded — stay idle
 
+        const blob = new Blob(audioChunksRef.current, { type: mimeType })
         if (blob.size === 0) {
-          console.warn('[Voice] Empty audio blob, skipping transcription')
+          setVoiceState('idle')
           return
         }
 
         const formData = new FormData()
-        // Whisper requires a filename with an extension
         formData.append('audio', blob, `recording.${mimeType === 'audio/webm' ? 'webm' : 'ogg'}`)
 
-        console.log('[Voice] Sending to /api/transcribe')
         try {
           const res = await fetch('/api/transcribe', { method: 'POST', body: formData })
           const data = await res.json()
           if (data.text) {
-            console.log('[Voice] Transcript received:', data.text)
             setInput(prev => prev ? prev + ' ' + data.text : data.text)
-          } else {
-            console.error('[Voice] Transcription error from API:', data.error)
           }
         } catch (err) {
-          console.error('[Voice] Fetch error:', err)
+          console.error('[Voice] Transcription error:', err)
+        } finally {
+          setVoiceState('idle')
+          requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
         }
       }
 
       recorder.start()
       mediaRecorderRef.current = recorder
-      setIsListening(true)
-      console.log('[Voice] Recording started, mimeType:', mimeType)
+      setVoiceState('recording')
     } catch (err) {
       console.error('[Voice] Failed to start recording:', err)
-      setIsListening(false)
+      setVoiceState('idle')
     }
+  }
+
+  function cancelRecording() {
+    cancelledRef.current = true
+    mediaRecorderRef.current?.stop()
+    setVoiceState('idle')
+  }
+
+  function confirmRecording() {
+    cancelledRef.current = false
+    setVoiceState('transcribing')
+    mediaRecorderRef.current?.stop()
   }
 
   // ─── Render ────────────────────────────────────────────────────────────────
@@ -376,54 +377,97 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
 
       {/* Input bar */}
       <div className="shrink-0 border-t border-zinc-900 bg-zinc-950 px-3 py-3 safe-bottom">
-        <div className="flex items-end gap-2 bg-zinc-900 rounded-2xl px-3 py-2">
-          <textarea
-            ref={textareaRef}
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Say something…"
-            disabled={isLoading}
-            rows={1}
-            className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
-          />
-
-          {/* Mic button */}
-          {hasSpeechSupport && (
+        {voiceState !== 'idle' ? (
+          /* ── Recording mode ── */
+          <div className="flex items-center gap-3 bg-zinc-900 rounded-2xl px-3 py-2 h-[48px]">
+            {/* Cancel */}
             <button
               type="button"
-              onClick={toggleListening}
-              disabled={isLoading}
-              className={`w-8 h-8 flex items-center justify-center rounded-full shrink-0 transition-colors mb-0.5 ${
-                isListening
-                  ? 'bg-red-500 text-white'
-                  : 'text-zinc-400 hover:text-white'
-              } disabled:opacity-30`}
-              aria-label={isListening ? 'Stop recording' : 'Start voice input'}
+              onClick={cancelRecording}
+              disabled={voiceState === 'transcribing'}
+              className="w-8 h-8 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-colors disabled:opacity-30 shrink-0"
+              aria-label="Cancel recording"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <rect x="9" y="2" width="6" height="11" rx="3" />
-                <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                <line x1="12" y1="19" x2="12" y2="22" />
-                <line x1="8" y1="22" x2="16" y2="22" />
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
               </svg>
             </button>
-          )}
 
-          {/* Send button */}
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={isLoading || !input.trim()}
-            className="w-8 h-8 flex items-center justify-center bg-white rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
-            aria-label="Send message"
-          >
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#09090b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-              <line x1="12" y1="19" x2="12" y2="5" />
-              <polyline points="5 12 12 5 19 12" />
-            </svg>
-          </button>
-        </div>
+            {/* Waveform / status */}
+            <div className="flex-1 flex items-center justify-center gap-1">
+              {voiceState === 'recording' ? (
+                [0, 150, 75, 225, 100].map((delay, i) => (
+                  <span
+                    key={i}
+                    className="w-0.5 h-4 bg-red-400 rounded-full animate-bounce"
+                    style={{ animationDelay: `${delay}ms` }}
+                  />
+                ))
+              ) : (
+                <span className="text-xs text-zinc-400 animate-pulse">Processing…</span>
+              )}
+            </div>
+
+            {/* Confirm */}
+            <button
+              type="button"
+              onClick={confirmRecording}
+              disabled={voiceState === 'transcribing'}
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white text-zinc-900 transition-opacity disabled:opacity-30 shrink-0"
+              aria-label="Confirm recording"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </button>
+          </div>
+        ) : (
+          /* ── Normal input mode ── */
+          <div className="flex items-end gap-2 bg-zinc-900 rounded-2xl px-3 py-2">
+            <textarea
+              ref={textareaRef}
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="Say something…"
+              disabled={isLoading}
+              rows={1}
+              className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
+            />
+
+            {/* Mic button */}
+            {hasSpeechSupport && (
+              <button
+                type="button"
+                onClick={startRecording}
+                disabled={isLoading}
+                className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
+                aria-label="Start voice input"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="9" y="2" width="6" height="11" rx="3" />
+                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                  <line x1="12" y1="19" x2="12" y2="22" />
+                  <line x1="8" y1="22" x2="16" y2="22" />
+                </svg>
+              </button>
+            )}
+
+            {/* Send button */}
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={isLoading || !input.trim()}
+              className="w-8 h-8 flex items-center justify-center bg-white rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
+              aria-label="Send message"
+            >
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#09090b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="12" y1="19" x2="12" y2="5" />
+                <polyline points="5 12 12 5 19 12" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Settings modal */}

@@ -111,6 +111,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [planOpen, setPlanOpen] = useState(false)
   const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null)
   const [newCheckInConfirm, setNewCheckInConfirm] = useState(false)
+  const [showNewDayBanner, setShowNewDayBanner] = useState(false)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
 
@@ -129,7 +130,16 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
-      try { setMessages(JSON.parse(stored)) } catch { /* ignore malformed */ }
+      try {
+        const parsed: Message[] = JSON.parse(stored)
+        setMessages(parsed)
+        // Show new-day banner if the stored conversation is from a previous local date
+        if (parsed.length > 0) {
+          const today = new Date().toLocaleDateString('en-CA')         // YYYY-MM-DD
+          const convDate = new Date(parsed[0].created_at).toLocaleDateString('en-CA')
+          if (convDate < today) setShowNewDayBanner(true)
+        }
+      } catch { /* ignore malformed */ }
     }
     const storedPlan = localStorage.getItem(PLAN_KEY)
     if (storedPlan) {
@@ -249,6 +259,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     setMessages([])
     setSavedPlan(null)
     setNewCheckInConfirm(false)
+    setShowNewDayBanner(false)
     triggerCheckIn()
   }
 
@@ -470,6 +481,29 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
       <p className="shrink-0 text-center text-[10px] text-zinc-700 py-1 px-4">
         Saved on this device only. Avoid switching devices or logging out during a check-in.
       </p>
+
+      {/* New-day banner */}
+      {showNewDayBanner && (
+        <div className="shrink-0 mx-3 mt-2 mb-1 bg-zinc-800/70 border border-zinc-700/60 rounded-2xl px-4 py-4">
+          <p className="text-sm text-white font-medium mb-3">Ready to start today&apos;s check-in?</p>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={clearCheckIn}
+              className="flex-1 py-2 rounded-xl bg-white text-xs font-medium text-zinc-900 hover:bg-zinc-200 transition-colors"
+            >
+              Start new check-in
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowNewDayBanner(false)}
+              className="flex-1 py-2 rounded-xl border border-zinc-600 text-xs text-zinc-400 hover:text-white hover:border-zinc-400 transition-colors"
+            >
+              Continue previous
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Messages */}
       <div

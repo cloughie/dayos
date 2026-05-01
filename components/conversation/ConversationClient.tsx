@@ -194,7 +194,8 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    // Send on Cmd+Enter (desktop convenience); plain Enter always inserts a newline
+    if (e.key === 'Enter' && e.metaKey) {
       e.preventDefault()
       handleSend()
     }

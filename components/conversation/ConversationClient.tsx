@@ -54,6 +54,21 @@ It's {{CURRENT_TIME_DAY_DATE}}.
 
 So, let's check-in.`
 
+// ─── Plan detection ────────────────────────────────────────────────────────
+// Returns true when an assistant message contains a finalised daily plan.
+// Requires at least 2 of 4 structural signals to avoid false positives during
+// Stage 1 / Stage 2 or when the assistant asks a clarifying question.
+
+function looksLikePlan(content: string): boolean {
+  const c = content.toLowerCase()
+  let signals = 0
+  if (c.includes('mental cue') || c.includes('mindset cue'))                         signals++
+  if (c.includes('morning') && (c.includes('afternoon') || c.includes('evening')))   signals++
+  if (c.includes('top win') || c.includes('top 2') || c.includes('top 3'))           signals++
+  if (c.includes('guardrail'))                                                         signals++
+  return signals >= 2
+}
+
 // ─── Message bubble ────────────────────────────────────────────────────────
 
 const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
@@ -518,13 +533,18 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
                 message={message}
                 ref={isLastAssistant ? lastAssistantRef : null}
               />
-              {isLastAssistant && !isLoading && (
-                <div className="flex justify-start mb-4 -mt-1 pl-1">
+              {isLastAssistant && !isLoading && looksLikePlan(message.content) && (
+                <div className="flex justify-start mt-3 mb-4">
                   <button
                     type="button"
                     onClick={() => savePlan(message.content)}
-                    className="text-xs text-zinc-600 hover:text-zinc-400 transition-colors"
+                    className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded-full px-3 py-1.5 transition-colors"
                   >
+                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                      <polyline points="17 21 17 13 7 13 7 21" />
+                      <polyline points="7 3 7 8 15 8" />
+                    </svg>
                     {savedPlan ? 'Update today\'s plan' : 'Save as today\'s plan'}
                   </button>
                 </div>

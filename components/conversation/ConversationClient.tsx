@@ -81,6 +81,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null)
+  const [savedPlanMessageId, setSavedPlanMessageId] = useState<string | null>(null)
   const [newCheckInConfirm, setNewCheckInConfirm] = useState(false)
   const [showNewDayBanner, setShowNewDayBanner] = useState(false)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
@@ -188,7 +189,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
   }
 
-  function savePlan(content: string) {
+  function savePlan(content: string, messageId: string) {
     const plan: SavedPlan = {
       content,
       date: new Date().toISOString().split('T')[0],
@@ -196,6 +197,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     }
     localStorage.setItem(PLAN_KEY, JSON.stringify(plan))
     setSavedPlan(plan)
+    setSavedPlanMessageId(messageId)
   }
 
   // ─── Send message ─────────────────────────────────────────────────────────
@@ -446,18 +448,27 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
               />
               {isLastAssistant && !isLoading && looksLikePlan(message.content) && (
                 <div className="flex justify-start mt-3 mb-4">
-                  <button
-                    type="button"
-                    onClick={() => savePlan(message.content)}
-                    className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded-full px-3 py-1.5 transition-colors"
-                  >
-                    <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                      <polyline points="17 21 17 13 7 13 7 21" />
-                      <polyline points="7 3 7 8 15 8" />
-                    </svg>
-                    {savedPlan ? 'Update today\'s plan' : 'Save as today\'s plan'}
-                  </button>
+                  {savedPlanMessageId === message.id ? (
+                    <span className="flex items-center gap-1.5 text-xs text-zinc-600 border border-zinc-800 rounded-full px-3 py-1.5">
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                      Today&apos;s plan updated
+                    </span>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => savePlan(message.content, message.id)}
+                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded-full px-3 py-1.5 transition-colors"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                        <polyline points="17 21 17 13 7 13 7 21" />
+                        <polyline points="7 3 7 8 15 8" />
+                      </svg>
+                      {savedPlan ? 'Update today\'s plan' : 'Save as today\'s plan'}
+                    </button>
+                  )}
                 </div>
               )}
             </div>

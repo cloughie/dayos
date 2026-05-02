@@ -10,50 +10,6 @@ import type { Message } from '@/lib/types'
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
 
-// ─── Check-in prompt ───────────────────────────────────────────────────────
-// {{CURRENT_TIME_DAY_DATE}} is replaced at runtime with the user's local time.
-// Do not modify the wording of this prompt.
-
-const CHECK_IN_PROMPT = `Good morning, let's check-in.
-
-As a reminder, let's cover this in three stages:
-
-The order of the 3 stages is important.
-
-First I want to clear out how I am feeling emotionally.
-Second, I want to reflect and learn from yesterday.
-Third, I want to look forward and make decisions for how I spend my time today.
-
-Push my thinking a bit. Don't just reflect — tighten it and say the thing clearly when you see it.
-
-For each stage, start with a question and let me fill in the blanks.
-Never assume or start to build plans without my input first.
-
-1. How am I feeling?
-
-Start by asking me for:
-
-* a score out of 10
-* a few words describing my state
-
-Then analyse my answer, reflect patterns, and ask clarifying questions if helpful.
-
-2. How did yesterday go?
-Identify wins, friction points, and what carries forward.
-
-3. What should today look like?
-Allow me first to get my ideas and thoughts out — and then work with me to shape into:
-- a mental cue
-- 2–3 top wins
-- morning / afternoon / evening blocks with light structure
-- 2-3 guardrails
-
-When revising a plan, return the full updated plan.
-
-It's {{CURRENT_TIME_DAY_DATE}}.
-
-So, let's check-in.`
-
 // ─── Plan detection ────────────────────────────────────────────────────────
 // Returns true when an assistant message contains a finalised daily plan.
 // Requires at least 2 of 4 structural signals to avoid false positives during
@@ -222,51 +178,6 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     clearCheckIn()
   }
 
-  function buildCheckInPrompt(): string {
-    const now = new Date()
-    const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: false })
-    const day = now.toLocaleDateString([], { weekday: 'short' })
-    const date = now.toLocaleDateString([], { month: 'long', day: 'numeric' })
-    return CHECK_IN_PROMPT.replace('{{CURRENT_TIME_DAY_DATE}}', `${time} ${day}, ${date}`)
-  }
-
-  async function triggerCheckIn() {
-    setIsLoading(true)
-    const hiddenPrompt = buildCheckInPrompt()
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        // The prompt is sent as the conversation but never added to messages state,
-        // so it does not appear in the chat UI.
-        body: JSON.stringify({ messages: [{ role: 'user', content: hiddenPrompt }] }),
-      })
-
-      if (!response.ok) throw new Error('Failed to start check-in')
-
-      const data = await response.json()
-      const aiMessage: Message = {
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: data.message,
-        created_at: new Date().toISOString(),
-      }
-      setMessages([aiMessage])
-    } catch (err) {
-      console.error('Check-in start error:', err)
-      setMessages([{
-        id: crypto.randomUUID(),
-        role: 'assistant',
-        content: 'Sorry, something went wrong starting your check-in. Please try again.',
-        created_at: new Date().toISOString(),
-      }])
-    } finally {
-      flushSync(() => setIsLoading(false))
-      requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
-    }
-  }
-
   function clearCheckIn() {
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(PLAN_KEY)
@@ -274,7 +185,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     setSavedPlan(null)
     setNewCheckInConfirm(false)
     setShowNewDayBanner(false)
-    triggerCheckIn()
+    requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
   }
 
   function savePlan(content: string) {

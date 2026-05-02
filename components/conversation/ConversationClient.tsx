@@ -109,7 +109,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const initialScrollDoneRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
 
-  // Load from localStorage on mount
+  // Load from localStorage on mount, then hydrate plan from Supabase
   useEffect(() => {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
@@ -124,10 +124,24 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         }
       } catch { /* ignore malformed */ }
     }
+
+    // Seed from localStorage immediately so there's no flash
     const storedPlan = localStorage.getItem(PLAN_KEY)
     if (storedPlan) {
       try { setSavedPlan(JSON.parse(storedPlan)) } catch { /* ignore malformed */ }
     }
+
+    // Supabase is the source of truth — overwrite localStorage cache if a newer plan exists
+    const today = new Date().toISOString().split('T')[0]
+    fetch(`/api/plans?date=${today}`)
+      .then(r => r.json())
+      .then(({ plan }) => {
+        if (plan) {
+          setSavedPlan(plan)
+          localStorage.setItem(PLAN_KEY, JSON.stringify(plan))
+        }
+      })
+      .catch(() => { /* keep localStorage value on network failure */ })
   }, [])
 
   // Save to localStorage whenever messages change
@@ -201,14 +215,32 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   }
 
   function savePlan(content: string, messageId: string) {
+    const date = new Date().toISOString().split('T')[0]
     const plan: SavedPlan = {
       content,
-      date: new Date().toISOString().split('T')[0],
+      date,
       savedAt: new Date().toISOString(),
     }
+    // Immediate local update so UI responds instantly
     localStorage.setItem(PLAN_KEY, JSON.stringify(plan))
     setSavedPlan(plan)
     setSavedPlanMessageId(messageId)
+
+    // Persist to Supabase — source of truth for cross-device / cross-context sync
+    fetch('/api/plans', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content, date }),
+    })
+      .then(r => r.json())
+      .then(({ savedAt }) => {
+        if (savedAt) {
+          const synced = { ...plan, savedAt }
+          localStorage.setItem(PLAN_KEY, JSON.stringify(synced))
+          setSavedPlan(synced)
+        }
+      })
+      .catch(err => console.error('[Plans] Failed to sync to Supabase:', err))
   }
 
   // ─── Send message ─────────────────────────────────────────────────────────

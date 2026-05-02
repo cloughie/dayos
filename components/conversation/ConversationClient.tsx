@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, forwardRef } from 'react'
+import { useState, useEffect, useRef, useCallback, forwardRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
@@ -86,6 +86,17 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [showNewDayBanner, setShowNewDayBanner] = useState(false)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
+
+  // ID of the most recent assistant message that contains a plan.
+  // Stays stable as subsequent messages arrive — only updates when a newer plan appears.
+  const latestPlanMessageId = useMemo(() => {
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'assistant' && looksLikePlan(messages[i].content)) {
+        return messages[i].id
+      }
+    }
+    return null
+  }, [messages])
 
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const lastAssistantRef = useRef<HTMLDivElement>(null)
@@ -446,7 +457,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
                 message={message}
                 ref={isLastAssistant ? lastAssistantRef : null}
               />
-              {isLastAssistant && !isLoading && looksLikePlan(message.content) && (
+              {message.id === latestPlanMessageId && !isLoading && (
                 <div className="flex justify-start mt-3 mb-4">
                   {savedPlanMessageId === message.id ? (
                     <span className="flex items-center gap-1.5 text-xs text-zinc-600 border border-zinc-800 rounded-full px-3 py-1.5">

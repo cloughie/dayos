@@ -9,6 +9,16 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
+  // Safety net: if a Supabase auth code lands on /auth/login (happens when the
+  // Supabase Site URL points here instead of /auth/callback), forward it to the
+  // callback handler so the code is exchanged and the user is routed correctly.
+  const code = request.nextUrl.searchParams.get('code')
+  if (code && pathname === '/auth/login') {
+    const callbackUrl = request.nextUrl.clone()
+    callbackUrl.pathname = '/auth/callback'
+    return NextResponse.redirect(callbackUrl)
+  }
+
   const isProtected = PROTECTED_ROUTES.some(
     (route) => pathname === route || pathname.startsWith(route + '/')
   )

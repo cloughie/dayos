@@ -1,10 +1,14 @@
 'use client'
 
 import { useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function ForgotPasswordPage() {
+  const searchParams = useSearchParams()
+  const linkExpired = searchParams.get('error') === 'link_expired'
+
   const [email, setEmail] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [submitted, setSubmitted] = useState(false)
@@ -17,12 +21,14 @@ export default function ForgotPasswordPage() {
 
     const supabase = createClient()
 
-    // window.location.origin is used so this works across localhost, production,
-    // and preview deployments without hardcoding a URL.
-    // IMPORTANT: ensure this origin + /auth/callback is listed in your Supabase
+    // Use the bare /auth/callback URL (no query params) so it matches the
+    // redirect URL whitelisted in Supabase dashboard exactly.
+    // Supabase matches redirect URLs literally — adding ?next=... causes a mismatch
+    // and falls back to the Site URL. Recovery is detected in the callback instead.
+    // IMPORTANT: ensure <your-origin>/auth/callback is listed in your Supabase
     // dashboard under Authentication → URL Configuration → Redirect URLs.
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback?next=/auth/reset-password`,
+      redirectTo: `${window.location.origin}/auth/callback`,
     })
 
     if (resetError) {
@@ -43,6 +49,12 @@ export default function ForgotPasswordPage() {
           <h1 className="text-3xl font-bold tracking-tight text-white">DayOS</h1>
           <p className="mt-2 text-zinc-400 text-sm">Reset your password</p>
         </div>
+
+        {linkExpired && (
+          <div className="mb-4 bg-red-950/50 border border-red-900 rounded-xl px-4 py-3">
+            <p className="text-red-400 text-sm">This reset link has expired or is invalid. Enter your email to receive a new one.</p>
+          </div>
+        )}
 
         {submitted ? (
           <div className="space-y-4">

@@ -481,6 +481,20 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-4"
       >
+        {messages.length === 0 && !isLoading && (
+          <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
+            <p className="text-white font-medium text-base mb-1">Start today&apos;s check-in</p>
+            <p className="text-zinc-500 text-sm mb-8">How&apos;s your day shaping up?</p>
+            <button
+              type="button"
+              onClick={() => textareaRef.current?.focus({ preventScroll: true })}
+              className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+            >
+              Begin
+            </button>
+          </div>
+        )}
+
         {messages.map((message, i) => {
           const isLastAssistant = message.role === 'assistant' && i === messages.length - 1
           return (

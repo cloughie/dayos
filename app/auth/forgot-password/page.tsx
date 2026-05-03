@@ -34,15 +34,13 @@ function ForgotPasswordForm() {
     })
 
     if (resetError) {
-      // Log the full error in development so we can diagnose the root cause.
-      // In production this stays out of the UI.
-      if (process.env.NODE_ENV === 'development') {
-        console.error('[forgot-password] resetPasswordForEmail failed:', {
-          message: resetError.message,
-          status: resetError.status,
-          redirectTo,
-        })
-        setError(`Debug: ${resetError.message} (status ${resetError.status}) — redirectTo: ${redirectTo}`)
+      console.error('[forgot-password] resetPasswordForEmail failed:', {
+        message: resetError.message,
+        status: resetError.status,
+        redirectTo,
+      })
+      if (resetError.status === 429) {
+        setError('Too many attempts. Please wait a moment and try again.')
       } else {
         setError('Something went wrong. Please try again.')
       }

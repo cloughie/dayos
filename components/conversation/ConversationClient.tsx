@@ -25,6 +25,38 @@ function looksLikePlan(content: string): boolean {
   return signals >= 2
 }
 
+// ─── Plan extraction ───────────────────────────────────────────────────────
+// Strips conversational filler before/after the plan block.
+// Finds the first plan section header as the start, and includes everything
+// up to the end of the guardrails section. Falls back to the full message
+// so the user never loses the ability to save.
+
+function extractPlan(content: string): string {
+  const lines = content.split('\n')
+  const sectionRe = /mental cue|mindset cue|top win|top [23]\b|morning|afternoon|evening|guardrail/i
+
+  // Start: first line containing a known plan section keyword
+  const startIdx = lines.findIndex(l => sectionRe.test(l))
+  if (startIdx === -1) return content
+
+  // End: guardrails section (last expected section)
+  let guardrailIdx = -1
+  for (let i = startIdx; i < lines.length; i++) {
+    if (/guardrail/i.test(lines[i])) guardrailIdx = i
+  }
+  if (guardrailIdx === -1) return content
+
+  // Extend past the guardrails header to include its content lines,
+  // stopping at the first blank line (where conversational outro begins)
+  let endIdx = guardrailIdx
+  for (let i = guardrailIdx + 1; i < lines.length; i++) {
+    if (lines[i].trim() === '') break
+    endIdx = i
+  }
+
+  return lines.slice(startIdx, endIdx + 1).join('\n').trim()
+}
+
 // ─── Message bubble ────────────────────────────────────────────────────────
 
 const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
@@ -524,7 +556,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
                   ) : (
                     <button
                       type="button"
-                      onClick={() => savePlan(message.content, message.id)}
+                      onClick={() => savePlan(extractPlan(message.content), message.id)}
                       className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded-full px-3 py-1.5 transition-colors"
                     >
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

@@ -27,12 +27,25 @@ function ForgotPasswordForm() {
     // and falls back to the Site URL. Recovery is detected in the callback instead.
     // IMPORTANT: ensure <your-origin>/auth/callback is listed in your Supabase
     // dashboard under Authentication → URL Configuration → Redirect URLs.
+    const redirectTo = `${window.location.origin}/auth/callback`
+
     const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo,
     })
 
     if (resetError) {
-      setError('Something went wrong. Please try again.')
+      // Log the full error in development so we can diagnose the root cause.
+      // In production this stays out of the UI.
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[forgot-password] resetPasswordForEmail failed:', {
+          message: resetError.message,
+          status: resetError.status,
+          redirectTo,
+        })
+        setError(`Debug: ${resetError.message} (status ${resetError.status}) — redirectTo: ${redirectTo}`)
+      } else {
+        setError('Something went wrong. Please try again.')
+      }
       setIsLoading(false)
       return
     }

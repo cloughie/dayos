@@ -116,6 +116,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const [savedPlanMessageId, setSavedPlanMessageId] = useState<string | null>(null)
   const [newCheckInConfirm, setNewCheckInConfirm] = useState(false)
   const [showNewDayBanner, setShowNewDayBanner] = useState(false)
+  const [started, setStarted] = useState(false)
   const [voiceState, setVoiceState] = useState<'idle' | 'recording' | 'transcribing'>('idle')
   const [hasSpeechSupport, setHasSpeechSupport] = useState(false)
 
@@ -243,6 +244,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     setSavedPlan(null)
     setNewCheckInConfirm(false)
     setShowNewDayBanner(false)
+    setStarted(false)
     requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
   }
 
@@ -522,13 +524,13 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-4"
       >
-        {messages.length === 0 && !isLoading && (
+        {messages.length === 0 && !isLoading && !started && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
             <p className="text-white font-medium text-base mb-1">Start today&apos;s check-in</p>
             <p className="text-zinc-500 text-sm mb-8">How&apos;s your day shaping up?</p>
             <button
               type="button"
-              onClick={() => textareaRef.current?.focus({ preventScroll: true })}
+              onClick={() => { setStarted(true); textareaRef.current?.focus({ preventScroll: true }) }}
               className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
             >
               Begin

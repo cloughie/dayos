@@ -574,7 +574,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         {messages.length === 0 && !isLoading && !started && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
             <p className="text-white font-medium text-base mb-1">Start today&apos;s check-in</p>
-            <p className="text-zinc-500 text-sm mb-8">How&apos;s your day shaping up?</p>
+            <p className="text-zinc-500 text-sm mb-8">Clear your head and decide what matters today.</p>
             <button
               type="button"
               onClick={startCheckIn}

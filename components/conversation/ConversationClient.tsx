@@ -10,6 +10,43 @@ import type { Message } from '@/lib/types'
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
 
+const CHECKIN_PROMPT = `Let's check in.
+
+As a reminder, let's cover this in three stages:
+
+The order of the 3 stages is important.
+
+First I want to clear out how I am feeling emotionally.
+Second, I want to reflect and learn from yesterday.
+Third, I want to look forward and make decisions for how I spend my time today.
+
+Push my thinking a bit. Don't just reflect — tighten it and say the thing clearly when you see it.
+
+For each stage, start with a question and let me fill in the blanks.
+Never assume or start to build plans without my input first.
+
+1. How am I feeling?
+
+Start by asking me for:
+* a score out of 10
+* a few words describing my state
+
+Then analyse my answer, reflect patterns, and ask clarifying questions if helpful.
+
+2. How did yesterday go?
+Identify wins, friction points, and what carries forward.
+
+3. What should today look like?
+Allow me first to get my ideas and thoughts out — and then work with me to shape into:
+- a mental cue
+- 2–3 top wins
+- morning / afternoon / evening blocks with light structure
+- 2-3 guardrails
+
+When revising a plan, always return the full updated plan, not just the changed section, so it can be saved cleanly.
+
+So, let's check in.`
+
 // ─── Plan detection ────────────────────────────────────────────────────────
 // Returns true when an assistant message contains a finalised daily plan.
 // Requires at least 2 of 4 structural signals to avoid false positives during
@@ -278,7 +315,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   // ─── Send message ─────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (userContent: string) => {
+    async (userContent: string, extraSystem?: string) => {
       if (isLoading) return
 
       const userMessage: Message = {
@@ -306,7 +343,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: updatedMessages, clientTime }),
+          body: JSON.stringify({ messages: updatedMessages, clientTime, checkInPrompt: extraSystem }),
         })
 
         if (!response.ok) {
@@ -364,6 +401,10 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
     sendMessage(trimmed)
+  }
+
+  function startCheckIn() {
+    sendMessage("Let's check in.", CHECKIN_PROMPT)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -528,7 +569,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
             <p className="text-zinc-500 text-sm mb-8">How&apos;s your day shaping up?</p>
             <button
               type="button"
-              onClick={() => textareaRef.current?.focus({ preventScroll: true })}
+              onClick={startCheckIn}
               className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
             >
               Begin

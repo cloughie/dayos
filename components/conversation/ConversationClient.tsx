@@ -316,7 +316,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   // ─── Send message ─────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (userContent: string) => {
+    async (userContent: string, hidden?: boolean) => {
       if (isLoading) return
 
       const userMessage: Message = {
@@ -324,6 +324,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         role: 'user',
         content: userContent,
         created_at: new Date().toISOString(),
+        ...(hidden ? { hidden: true } : {}),
       }
 
       const updatedMessages = [...messages, userMessage]
@@ -405,7 +406,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     const monthDate = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
     const message = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${day}, ${monthDate}\n\nSo, let's check-in.`
     setStarted(true)
-    sendMessage(message)
+    sendMessage(message, true)
   }
 
   function handleSend() {
@@ -585,6 +586,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         )}
 
         {messages.map((message, i) => {
+          if (message.hidden) return null
           const isLastAssistant = message.role === 'assistant' && i === messages.length - 1
           return (
             <div key={message.id}>

@@ -3,6 +3,7 @@ export type Message = {
   role: 'user' | 'assistant'
   content: string
   created_at: string
+  hidden?: boolean
 }
 
 export type ConversationMode = 'checkin' | 'refine'

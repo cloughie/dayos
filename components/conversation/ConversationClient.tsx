@@ -530,7 +530,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
             <p className="text-zinc-500 text-sm mb-8">How&apos;s your day shaping up?</p>
             <button
               type="button"
-              onClick={() => { setStarted(true); textareaRef.current?.focus({ preventScroll: true }) }}
+              onClick={() => setStarted(true)}
               className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
             >
               Begin

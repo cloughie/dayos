@@ -402,7 +402,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     const now = new Date()
     const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
     const date = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    const message = `${CHECKIN_PROMPT}\n\nCurrent local time: ${time}\nCurrent date: ${date}`
+    const message = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${date}\n\nSo, let's check-in.`
     setStarted(true)
     sendMessage(message)
   }

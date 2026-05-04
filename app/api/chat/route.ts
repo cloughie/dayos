@@ -63,6 +63,10 @@ export async function POST(request: Request) {
 
     const systemPrompt = [datetimeContext, memoryContext].filter(Boolean).join('\n\n')
 
+    console.log('[Chat] Messages sent to Claude:')
+    if (systemPrompt) console.log('[Chat] system:', systemPrompt)
+    history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
+
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const response = await anthropic.messages.create({
       model: 'claude-sonnet-4-6',

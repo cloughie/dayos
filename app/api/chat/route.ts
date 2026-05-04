@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { messages, clientTime, checkInPrompt }: { messages: Message[]; clientTime?: string; checkInPrompt?: string } = await request.json()
+    const { messages, clientTime }: { messages: Message[]; clientTime?: string } = await request.json()
 
     let memoryContext = ''
     try {
@@ -61,7 +61,7 @@ export async function POST(request: Request) {
       ? `The current local date and time is ${clientTime}. Use this as ground truth for any references to today, tomorrow, this morning, this afternoon, or this evening.`
       : ''
 
-    const systemPrompt = [checkInPrompt, datetimeContext, memoryContext].filter(Boolean).join('\n\n')
+    const systemPrompt = [datetimeContext, memoryContext].filter(Boolean).join('\n\n')
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const response = await anthropic.messages.create({

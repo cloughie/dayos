@@ -400,9 +400,10 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
 
   function startCheckIn() {
     const now = new Date()
-    const time = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
-    const date = now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
-    const message = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${date}\n\nSo, let's check-in.`
+    const time = `${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`
+    const day = now.toLocaleDateString('en-US', { weekday: 'long' })
+    const monthDate = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+    const message = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${day}, ${monthDate}\n\nSo, let's check-in.`
     setStarted(true)
     sendMessage(message)
   }

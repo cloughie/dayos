@@ -44,7 +44,7 @@ Allow me first to get my ideas and thoughts out — and then work with me to sha
 - morning / afternoon / evening blocks with light structure
 - 2–3 guardrails
 
-When revising a plan, always return the full updated plan, not just the changed section, so it can be saved cleanly.`
+When revising a plan — including any change to timing, sequencing, priorities, or what happens next in the day — always return the full updated plan, not just the changed section, so it can be saved cleanly.`
 
 // ─── Plan detection ────────────────────────────────────────────────────────
 // Returns true when an assistant message contains a finalised daily plan.

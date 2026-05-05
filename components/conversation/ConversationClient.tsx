@@ -174,6 +174,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
   const audioChunksRef = useRef<Blob[]>([])
   const cancelledRef = useRef(false)
+  const startNewDayRef = useRef(false)
   const prevLoadingRef = useRef(false)
   const initialScrollDoneRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
@@ -243,6 +244,15 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     prevLoadingRef.current = isLoading
   }, [isLoading])
 
+  // Auto-start check-in after new-day clear — runs once messages is empty post-reset
+  useEffect(() => {
+    if (startNewDayRef.current && messages.length === 0 && !isLoading) {
+      startNewDayRef.current = false
+      startCheckIn()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [messages, isLoading])
+
   function handleScroll() {
     const el = scrollContainerRef.current
     if (!el) return
@@ -282,6 +292,17 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
     setShowNewDayBanner(false)
     setStarted(false)
     requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+  }
+
+  function handleNewDayStart() {
+    localStorage.removeItem(STORAGE_KEY)
+    localStorage.removeItem(PLAN_KEY)
+    setMessages([])
+    setSavedPlan(null)
+    setNewCheckInConfirm(false)
+    setShowNewDayBanner(false)
+    setStarted(false)
+    startNewDayRef.current = true
   }
 
   function savePlan(content: string, messageId: string) {
@@ -502,7 +523,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
           </button>
         </div>
         <div className="flex items-center gap-1">
-          <button
+          {!showNewDayBanner && <button
             onClick={() => setPlanOpen(true)}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
             aria-label="Today's Plan"
@@ -513,7 +534,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
               <line x1="9" y1="11" x2="15" y2="11" />
               <line x1="9" y1="15" x2="13" y2="15" />
             </svg>
-          </button>
+          </button>}
           <button
             onClick={() => setMemoryOpen(true)}
             className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
@@ -542,28 +563,6 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         Saved on this device only. Avoid switching devices or logging out during a check-in.
       </p>
 
-      {/* New-day banner */}
-      {showNewDayBanner && (
-        <div className="shrink-0 mx-3 mt-2 mb-1 bg-zinc-800/70 border border-zinc-700/60 rounded-2xl px-4 py-4">
-          <p className="text-sm text-white font-medium mb-3">Ready to start today&apos;s check-in?</p>
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={handleNewCheckIn}
-              className="flex-1 py-2 rounded-xl bg-white text-xs font-medium text-zinc-900 hover:bg-zinc-200 transition-colors"
-            >
-              Start new check-in
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowNewDayBanner(false)}
-              className="flex-1 py-2 rounded-xl border border-zinc-600 text-xs text-zinc-400 hover:text-white hover:border-zinc-400 transition-colors"
-            >
-              Continue previous
-            </button>
-          </div>
-        </div>
-      )}
 
       {/* Messages */}
       <div
@@ -571,6 +570,20 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         onScroll={handleScroll}
         className="flex-1 overflow-y-auto px-4 py-4"
       >
+        {showNewDayBanner ? (
+          <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
+            <p className="text-white font-medium text-base mb-2">Ready to start today&apos;s check-in?</p>
+            <button
+              type="button"
+              onClick={handleNewDayStart}
+              className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+            >
+              Start check-in
+            </button>
+          </div>
+        ) : (
+        <>
+
         {messages.length === 0 && !isLoading && !started && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
             <p className="text-white font-medium text-base mb-1">Start today&apos;s check-in</p>
@@ -625,11 +638,14 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
 
         {isLoading && <TypingIndicator />}
 
+        </>
+        )}
+
         <div ref={messagesEndRef} />
       </div>
 
       {/* Jump to bottom */}
-      {showScrollButton && (
+      {showScrollButton && !showNewDayBanner && (
         <button
           type="button"
           onClick={scrollToBottom}
@@ -698,7 +714,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Say something…"
-              disabled={isLoading}
+              disabled={isLoading || showNewDayBanner}
               rows={1}
               className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
             />
@@ -708,7 +724,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
               <button
                 type="button"
                 onClick={startRecording}
-                disabled={isLoading}
+                disabled={isLoading || showNewDayBanner}
                 className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
                 aria-label="Start voice input"
               >
@@ -725,7 +741,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
             <button
               type="button"
               onClick={handleSend}
-              disabled={isLoading || !input.trim()}
+              disabled={isLoading || showNewDayBanner || !input.trim()}
               className="w-8 h-8 flex items-center justify-center bg-white rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
               aria-label="Send message"
             >

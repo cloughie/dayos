@@ -40,7 +40,8 @@ export default function LoginPage() {
         {/* Logo */}
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">DayOS</h1>
-          <p className="mt-2 text-zinc-400 text-sm">A daily thinking system for clarity and action. Operate at a different level, every day.</p>
+          <p className="mt-2 text-zinc-400 text-sm">A daily thinking system for clarity and action.</p>
+          <p className="mt-1 text-zinc-200 text-sm font-medium">Operate at a different level, every day.</p>
         </div>
 
         {/* Form */}

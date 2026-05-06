@@ -22,10 +22,10 @@ function OnboardingFlow() {
     setStep('welcome')
   }
 
-  async function handleStartCheckIn() {
-    // Test mode: skip saving, go straight to conversation with autostart
+  async function handleContinue() {
+    // Test mode: skip saving, go straight to conversation
     if (isTestMode) {
-      router.push('/conversation?autostart=1')
+      router.push('/conversation')
       return
     }
 
@@ -55,7 +55,7 @@ function OnboardingFlow() {
       return
     }
 
-    router.push('/conversation?autostart=1')
+    router.push('/conversation')
   }
 
   return (
@@ -119,11 +119,11 @@ function OnboardingFlow() {
 
             <button
               type="button"
-              onClick={handleStartCheckIn}
+              onClick={handleContinue}
               disabled={isLoading}
               className="w-full bg-white text-zinc-950 rounded-xl px-4 py-3 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoading ? 'Starting…' : 'Start first check-in'}
+              {isLoading ? 'Loading…' : 'Continue'}
             </button>
           </div>
         )}

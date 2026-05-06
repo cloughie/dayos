@@ -59,9 +59,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         </button>
 
         {/* Privacy note */}
-        <div className="px-1 mb-4">
-          <p className="text-xs text-zinc-600 font-medium mb-1">Privacy</p>
-          <p className="text-xs text-zinc-600 leading-relaxed">
+        <div className="px-1 mb-5">
+          <p className="text-xs text-zinc-500 font-medium mb-1.5">Privacy</p>
+          <p className="text-xs text-zinc-500 leading-relaxed">
             Conversations are not stored server-side.<br />
             Saved memories are encrypted and private.
           </p>

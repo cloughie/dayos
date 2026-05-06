@@ -517,9 +517,9 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         <div className="flex items-center gap-1">
           <button
             onClick={() => !showNewDayBanner && setPlanOpen(true)}
-            className={`text-sm text-zinc-400 hover:text-white transition-colors px-2 py-1${showNewDayBanner ? ' pointer-events-none' : ''}`}
+            className={`text-sm font-medium text-zinc-300 hover:text-white transition-colors px-2 py-1${showNewDayBanner ? ' pointer-events-none' : ''}`}
           >
-            Plan
+            View Plan
           </button>
           <button
             onClick={() => setSettingsOpen(true)}

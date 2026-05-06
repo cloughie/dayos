@@ -106,6 +106,11 @@ function OnboardingFlow() {
               <p>The more honest and open you are, the more useful it becomes.</p>
             </div>
 
+            <p className="text-xs text-zinc-600 leading-relaxed mb-8">
+              Your conversations stay private.<br />
+              Saved memories are encrypted and only visible to you.
+            </p>
+
             {error && (
               <div className="bg-red-950/50 border border-red-900 rounded-xl px-4 py-3 mb-4">
                 <p className="text-red-400 text-sm">{error}</p>

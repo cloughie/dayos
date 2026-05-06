@@ -102,8 +102,7 @@ function OnboardingFlow() {
 
             <div className="space-y-4 text-sm text-zinc-400 leading-relaxed mb-8">
               <p>DayOS helps you clear your head, reflect honestly, and decide what matters today.</p>
-              <p>It then helps you build a clear plan for the day ahead.</p>
-              <p>Come back at any point in the day to adjust, reflect, and update your plan as things change.</p>
+              <p>Come back throughout the day whenever things drift, change, or need rethinking.</p>
               <p>The more honest and open you are, the more useful it becomes.</p>
             </div>
 

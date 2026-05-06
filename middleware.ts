@@ -9,6 +9,13 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
+  // Admin route protection — 404 for anyone who isn't the admin user
+  if (pathname.startsWith('/admin')) {
+    if (!user || user.id !== process.env.ADMIN_USER_ID) {
+      return new NextResponse(null, { status: 404 })
+    }
+  }
+
   // Safety net: if a Supabase auth code lands on /auth/login (happens when the
   // Supabase Site URL points here instead of /auth/callback), forward it to the
   // callback handler so the code is exchanged and the user is routed correctly.

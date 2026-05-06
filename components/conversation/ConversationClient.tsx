@@ -10,6 +10,17 @@ import type { Message } from '@/lib/types'
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
 
+// Fire-and-forget analytics — never throws, never blocks UX
+async function trackAnalyticsEvent(eventType: string) {
+  try {
+    await fetch('/api/analytics', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type: eventType }),
+    })
+  } catch { /* ignore */ }
+}
+
 const CHECKIN_PROMPT = `Good morning, let's check-in.
 
 As a reminder, let's cover this in three stages:
@@ -193,7 +204,12 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
         if (parsed.length > 0) {
           const today = new Date().toLocaleDateString('en-CA')         // YYYY-MM-DD
           const convDate = new Date(parsed[0].created_at).toLocaleDateString('en-CA')
-          if (convDate < today) setShowNewDayBanner(true)
+          if (convDate < today) {
+            setShowNewDayBanner(true)
+          } else {
+            // Messages exist from today — this is a return visit; server deduplicates
+            trackAnalyticsEvent('returned_same_day')
+          }
         }
       } catch { /* ignore malformed */ }
     }
@@ -436,6 +452,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
     const monthDate = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
     const message = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${day}, ${monthDate}\n\nSo, let's check-in.`
     setStarted(true)
+    trackAnalyticsEvent('daily_checkin_started')
     sendMessage(message, true)
   }
 

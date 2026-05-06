@@ -139,9 +139,10 @@ function TypingIndicator() {
 
 interface ConversationClientProps {
   userEmail: string
+  autoStart?: boolean
 }
 
-export default function ConversationClient({ userEmail }: ConversationClientProps) {
+export default function ConversationClient({ userEmail, autoStart = false }: ConversationClientProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -181,11 +182,13 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
 
   // Load from localStorage on mount, then hydrate plan from Supabase
   useEffect(() => {
+    let hasStoredMessages = false
     const stored = localStorage.getItem(STORAGE_KEY)
     if (stored) {
       try {
         const parsed: Message[] = JSON.parse(stored)
         setMessages(parsed)
+        hasStoredMessages = parsed.length > 0
         // Show new-day banner if the stored conversation is from a previous local date
         if (parsed.length > 0) {
           const today = new Date().toLocaleDateString('en-CA')         // YYYY-MM-DD
@@ -212,6 +215,12 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         }
       })
       .catch(() => { /* keep localStorage value on network failure */ })
+
+    // First-time user arriving from onboarding — start check-in automatically
+    if (autoStart && !hasStoredMessages) {
+      startCheckIn()
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Save to localStorage whenever messages change

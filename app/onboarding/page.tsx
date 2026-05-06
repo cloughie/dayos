@@ -1,36 +1,39 @@
 'use client'
 
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { Suspense, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-type Step = 'name' | 'notes' | 'saving'
+type Step = 'name' | 'welcome'
 
-export default function OnboardingPage() {
+function OnboardingFlow() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const isTestMode = searchParams.get('onboarding') === '1'
+
   const [step, setStep] = useState<Step>('name')
   const [preferredName, setPreferredName] = useState('')
-  const [onboardingNotes, setOnboardingNotes] = useState('')
-  const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  async function handleNameSubmit(e: React.FormEvent) {
+  function handleNameContinue(e: React.FormEvent) {
     e.preventDefault()
     if (!preferredName.trim()) return
-    setStep('notes')
+    setStep('welcome')
   }
 
-  async function handleComplete(e: React.FormEvent) {
-    e.preventDefault()
-    setError(null)
+  async function handleStartCheckIn() {
+    // Test mode: skip saving, go straight to conversation with autostart
+    if (isTestMode) {
+      router.push('/conversation?autostart=1')
+      return
+    }
+
     setIsLoading(true)
-    setStep('saving')
+    setError(null)
 
     const supabase = createClient()
-
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
+    const { data: { user } } = await supabase.auth.getUser()
 
     if (!user) {
       router.push('/auth/login')
@@ -43,19 +46,16 @@ export default function OnboardingPage() {
         id: user.id,
         email: user.email ?? '',
         preferred_name: preferredName.trim(),
-        onboarding_notes: onboardingNotes.trim() || null,
         onboarding_complete: true,
       })
 
     if (upsertError) {
       setError(upsertError.message)
       setIsLoading(false)
-      setStep('notes')
       return
     }
 
-    router.push('/conversation')
-    router.refresh()
+    router.push('/conversation?autostart=1')
   }
 
   return (
@@ -63,22 +63,24 @@ export default function OnboardingPage() {
       <div className="w-full max-w-sm">
 
         {step === 'name' && (
-          <div className="animate-fade-in">
+          <div>
             <div className="mb-8">
-              <p className="text-zinc-400 text-sm mb-1">Getting started</p>
-              <h2 className="text-2xl font-semibold text-white leading-snug">
-                What should I call you?
+              <h2 className="text-2xl font-semibold text-white leading-snug mb-2">
+                Welcome to DayOS
               </h2>
+              <p className="text-zinc-400 text-sm">Great to have you here.</p>
             </div>
 
-            <form onSubmit={handleNameSubmit} className="space-y-4">
+            <p className="text-zinc-300 text-sm font-medium mb-3">What should we call you?</p>
+
+            <form onSubmit={handleNameContinue} className="space-y-4">
               <input
                 type="text"
                 value={preferredName}
                 onChange={(e) => setPreferredName(e.target.value)}
                 autoFocus
                 required
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors text-lg"
+                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
                 placeholder="Your first name"
               />
               <button
@@ -92,62 +94,45 @@ export default function OnboardingPage() {
           </div>
         )}
 
-        {step === 'notes' && (
-          <div className="animate-fade-in">
-            <div className="mb-8">
-              <p className="text-zinc-400 text-sm mb-1">One more thing, {preferredName}</p>
-              <h2 className="text-2xl font-semibold text-white leading-snug">
-                Anything important I should know right now?
-              </h2>
-              <p className="mt-2 text-zinc-500 text-sm">
-                Upcoming deadlines, health stuff, anything relevant — or skip if nothing comes to mind.
-              </p>
+        {step === 'welcome' && (
+          <div>
+            <h2 className="text-2xl font-semibold text-white leading-snug mb-6">
+              Welcome, {preferredName}
+            </h2>
+
+            <div className="space-y-4 text-sm text-zinc-400 leading-relaxed mb-8">
+              <p>DayOS helps you clear your head, reflect honestly, and decide what matters today.</p>
+              <p>It then helps you build a clear plan for the day ahead.</p>
+              <p>Come back at any point in the day to adjust, reflect, and update your plan as things change.</p>
+              <p>The more honest and open you are, the more useful it becomes.</p>
             </div>
 
-            <form onSubmit={handleComplete} className="space-y-4">
-              <textarea
-                value={onboardingNotes}
-                onChange={(e) => setOnboardingNotes(e.target.value)}
-                autoFocus
-                rows={4}
-                className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-3 text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
-                placeholder="e.g. Big presentation on Friday, been a bit sleep deprived this week…"
-              />
-
-              {error && (
-                <div className="bg-red-950/50 border border-red-900 rounded-xl px-4 py-3">
-                  <p className="text-red-400 text-sm">{error}</p>
-                </div>
-              )}
-
-              <div className="flex gap-3">
-                <button
-                  type="button"
-                  onClick={handleComplete}
-                  disabled={isLoading}
-                  className="flex-1 bg-zinc-800 text-zinc-300 rounded-xl px-4 py-3 font-medium text-sm hover:bg-zinc-700 active:bg-zinc-600 transition-colors disabled:opacity-50"
-                >
-                  Skip
-                </button>
-                <button
-                  type="submit"
-                  disabled={isLoading}
-                  className="flex-1 bg-white text-zinc-950 rounded-xl px-4 py-3 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isLoading ? 'Saving…' : "Let's go"}
-                </button>
+            {error && (
+              <div className="bg-red-950/50 border border-red-900 rounded-xl px-4 py-3 mb-4">
+                <p className="text-red-400 text-sm">{error}</p>
               </div>
-            </form>
+            )}
+
+            <button
+              type="button"
+              onClick={handleStartCheckIn}
+              disabled={isLoading}
+              className="w-full bg-white text-zinc-950 rounded-xl px-4 py-3 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isLoading ? 'Starting…' : 'Start first check-in'}
+            </button>
           </div>
         )}
 
-        {step === 'saving' && (
-          <div className="text-center">
-            <div className="w-8 h-8 border-2 border-zinc-600 border-t-white rounded-full animate-spin mx-auto mb-4" />
-            <p className="text-zinc-400 text-sm">Setting things up…</p>
-          </div>
-        )}
       </div>
     </div>
+  )
+}
+
+export default function OnboardingPage() {
+  return (
+    <Suspense>
+      <OnboardingFlow />
+    </Suspense>
   )
 }

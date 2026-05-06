@@ -55,7 +55,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
           onClick={onMemoryOpen}
           className="w-full bg-zinc-800 text-zinc-200 rounded-xl px-4 py-3.5 font-medium text-sm hover:bg-zinc-700 active:bg-zinc-600 transition-colors text-left mb-2"
         >
-          Memory
+          Manage memory
         </button>
 
         {/* Logout */}

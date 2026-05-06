@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
+import { decrypt } from '@/lib/encryption'
 
 const CATEGORY_ORDER = ['pattern', 'decision', 'issue', 'person', 'preference']
 
@@ -27,7 +28,7 @@ async function loadMemoryContext(userId: string): Promise<string> {
   }
 
   return 'Relevant user context from previous sessions:\n' +
-    sorted.map(m => `• ${m.content}`).join('\n')
+    sorted.map(m => `• ${decrypt(m.content)}`).join('\n')
 }
 
 export async function POST(request: Request) {
@@ -63,9 +64,11 @@ export async function POST(request: Request) {
 
     const systemPrompt = [datetimeContext, memoryContext].filter(Boolean).join('\n\n')
 
-    console.log('[Chat] Messages sent to Claude:')
-    if (systemPrompt) console.log('[Chat] system:', systemPrompt)
-    history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
+    if (process.env.NODE_ENV === 'development') {
+      console.log('[Chat] Messages sent to Claude:')
+      if (systemPrompt) console.log('[Chat] system:', systemPrompt)
+      history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
+    }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
     const response = await anthropic.messages.create({

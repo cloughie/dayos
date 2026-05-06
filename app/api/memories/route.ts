@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createClient } from '@/lib/supabase/server'
+import { encrypt, decrypt } from '@/lib/encryption'
 
 const VALID_CATEGORIES = new Set(['pattern', 'issue', 'decision', 'person', 'preference'])
 
@@ -69,7 +70,8 @@ export async function GET() {
       .order('updated_at', { ascending: false })
 
     if (error) throw error
-    return NextResponse.json({ memories: memories ?? [] })
+    const decrypted = (memories ?? []).map(m => ({ ...m, content: decrypt(m.content) }))
+    return NextResponse.json({ memories: decrypted })
   } catch (error) {
     console.error('[Memory] GET error:', error)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
@@ -97,12 +99,15 @@ export async function POST(request: Request) {
       .join('\n\n')
 
     // Fetch existing memories to inject into the prompt (semantic dedup) and for string-based safety net
-    const { data: existing } = await supabase
+    const { data: existingRaw } = await supabase
       .from('user_memories')
       .select('id, content')
       .eq('user_id', user.id)
 
-    const existingContext = existing?.length
+    // Decrypt for comparison and prompt injection — never send ciphertext to the model
+    const existing = (existingRaw ?? []).map(m => ({ ...m, content: decrypt(m.content) }))
+
+    const existingContext = existing.length
       ? `\n\nAlready stored memories. Do not duplicate these:\n${existing.map(m => `- ${m.content}`).join('\n')}`
       : ''
 
@@ -159,7 +164,7 @@ export async function POST(request: Request) {
         if (duplicate.content.toLowerCase().trim() !== mem.content.toLowerCase().trim()) {
           await supabase
             .from('user_memories')
-            .update({ content: mem.content, updated_at: new Date().toISOString() })
+            .update({ content: encrypt(mem.content), updated_at: new Date().toISOString() })
             .eq('id', duplicate.id)
           saved++
         } else {
@@ -169,7 +174,7 @@ export async function POST(request: Request) {
         await supabase.from('user_memories').insert({
           user_id: user.id,
           category: mem.category,
-          content: mem.content,
+          content: encrypt(mem.content),
         })
         saved++
       }

@@ -528,16 +528,6 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
             </svg>
           </button>
           <button
-            onClick={() => !showNewDayBanner && setMemoryOpen(true)}
-            className={`w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors${showNewDayBanner ? ' pointer-events-none' : ''}`}
-            aria-label="Memory"
-          >
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2a5 5 0 0 1 5 5c0 1.9-.8 3.5-2 4.6V13a3 3 0 0 1-3 3 3 3 0 0 1-3-3v-1.4A6 6 0 0 1 7 7a5 5 0 0 1 5-5z" />
-              <path d="M9 17v1a3 3 0 0 0 6 0v-1" />
-            </svg>
-          </button>
-          <button
             onClick={() => setSettingsOpen(true)}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
           aria-label="Settings"
@@ -794,6 +784,7 @@ export default function ConversationClient({ userEmail }: ConversationClientProp
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         userEmail={userEmail}
+        onMemoryOpen={() => { setSettingsOpen(false); setMemoryOpen(true) }}
       />
 
       {/* Memory panel */}

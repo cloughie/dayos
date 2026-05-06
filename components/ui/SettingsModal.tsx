@@ -7,9 +7,10 @@ interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
   userEmail: string
+  onMemoryOpen: () => void
 }
 
-export default function SettingsModal({ isOpen, onClose, userEmail }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen }: SettingsModalProps) {
   const router = useRouter()
 
   if (!isOpen) return null
@@ -48,6 +49,14 @@ export default function SettingsModal({ isOpen, onClose, userEmail }: SettingsMo
           <p className="text-xs text-zinc-500 mb-0.5">Logged in as</p>
           <p className="text-sm text-zinc-200 font-medium">{userEmail}</p>
         </div>
+
+        {/* Memory */}
+        <button
+          onClick={onMemoryOpen}
+          className="w-full bg-zinc-800 text-zinc-200 rounded-xl px-4 py-3.5 font-medium text-sm hover:bg-zinc-700 active:bg-zinc-600 transition-colors text-left mb-2"
+        >
+          Memory
+        </button>
 
         {/* Logout */}
         <button

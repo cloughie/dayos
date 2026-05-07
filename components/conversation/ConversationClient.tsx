@@ -611,7 +611,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
                       <button
                         type="button"
                         onClick={() => savePlan(extractPlan(message.content), message.id)}
-                        className="flex items-center gap-1.5 text-xs font-medium text-white bg-zinc-700 hover:bg-zinc-600 rounded-full px-4 py-2 transition-colors"
+                        className="flex items-center gap-1.5 text-xs font-medium text-white bg-zinc-600 hover:bg-zinc-500 active:bg-zinc-600 rounded-full px-4 py-2 shadow-sm transition-colors"
                       >
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                           <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />

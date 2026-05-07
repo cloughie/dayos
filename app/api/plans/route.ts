@@ -66,8 +66,8 @@ export async function POST(request: Request) {
 
     if (error) throw error
 
-    // Fire-and-forget analytics — never block the response
-    trackEvent(user.id, existing ? 'plan_updated' : 'plan_saved').catch(() => {})
+    // Await analytics so the event is committed before the serverless function exits
+    await trackEvent(user.id, existing ? 'plan_updated' : 'plan_saved')
 
     return NextResponse.json({ ok: true, savedAt: now })
   } catch (error) {

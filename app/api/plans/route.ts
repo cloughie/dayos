@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { trackEvent } from '@/lib/analytics'
+import { encrypt, decrypt } from '@/lib/encryption'
 
 export async function GET(request: Request) {
   try {
@@ -24,9 +25,13 @@ export async function GET(request: Request) {
 
     if (!data) return NextResponse.json({ plan: null })
 
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Plans] GET: raw_text is ${data.raw_text.startsWith('enc:v1:') ? 'encrypted' : 'plaintext (legacy)'}`)
+    }
+
     return NextResponse.json({
       plan: {
-        content: data.raw_text,
+        content: decrypt(data.raw_text),
         date: data.date,
         savedAt: data.updated_at,
       },
@@ -60,11 +65,15 @@ export async function POST(request: Request) {
     const { error } = await supabase
       .from('plans')
       .upsert(
-        { user_id: user.id, date, raw_text: content, updated_at: now },
+        { user_id: user.id, date, raw_text: encrypt(content), updated_at: now },
         { onConflict: 'user_id,date' }
       )
 
     if (error) throw error
+
+    if (process.env.NODE_ENV === 'development') {
+      console.log(`[Plans] POST: saved as encrypted ciphertext for user ${user.id}`)
+    }
 
     // Await analytics so the event is committed before the serverless function exits
     await trackEvent(user.id, existing ? 'plan_updated' : 'plan_saved')

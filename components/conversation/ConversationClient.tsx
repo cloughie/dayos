@@ -607,7 +607,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
                     </span>
                   ) : (
                     <>
-                      <p className="text-xs text-zinc-500">Revisit and update this plan throughout the day.</p>
+                      {!savedPlan && <p className="text-xs text-zinc-500">Revisit and update this plan throughout the day.</p>}
                       <button
                         type="button"
                         onClick={() => savePlan(extractPlan(message.content), message.id)}

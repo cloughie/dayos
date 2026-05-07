@@ -597,7 +597,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
                 ref={isLastAssistant ? lastAssistantRef : null}
               />
               {message.id === latestPlanMessageId && !isLoading && (
-                <div className="flex justify-start mt-3 mb-4">
+                <div className="flex flex-col items-start gap-2 mt-4 mb-4">
                   {savedPlanMessageId === message.id ? (
                     <span className="flex items-center gap-1.5 text-xs text-zinc-600 border border-zinc-800 rounded-full px-3 py-1.5">
                       <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
@@ -606,18 +606,21 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
                       Today&apos;s plan updated
                     </span>
                   ) : (
-                    <button
-                      type="button"
-                      onClick={() => savePlan(extractPlan(message.content), message.id)}
-                      className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-200 border border-zinc-700 hover:border-zinc-500 rounded-full px-3 py-1.5 transition-colors"
-                    >
-                      <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
-                        <polyline points="17 21 17 13 7 13 7 21" />
-                        <polyline points="7 3 7 8 15 8" />
-                      </svg>
-                      {savedPlan ? 'Update today\'s plan' : 'Save as today\'s plan'}
-                    </button>
+                    <>
+                      <p className="text-xs text-zinc-500">Revisit and update this plan throughout the day.</p>
+                      <button
+                        type="button"
+                        onClick={() => savePlan(extractPlan(message.content), message.id)}
+                        className="flex items-center gap-1.5 text-xs font-medium text-white bg-zinc-700 hover:bg-zinc-600 rounded-full px-4 py-2 transition-colors"
+                      >
+                        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z" />
+                          <polyline points="17 21 17 13 7 13 7 21" />
+                          <polyline points="7 3 7 8 15 8" />
+                        </svg>
+                        {savedPlan ? 'Update today\'s plan' : 'Save today\'s plan'}
+                      </button>
+                    </>
                   )}
                 </div>
               )}

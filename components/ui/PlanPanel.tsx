@@ -10,13 +10,21 @@ interface PlanPanelProps {
   isOpen: boolean
   onClose: () => void
   plan: SavedPlan | null
+  yesterdayPlan?: SavedPlan | null
 }
 
-export default function PlanPanel({ isOpen, onClose, plan }: PlanPanelProps) {
+export default function PlanPanel({ isOpen, onClose, plan, yesterdayPlan }: PlanPanelProps) {
   if (!isOpen) return null
+
+  const activePlan = plan ?? yesterdayPlan ?? null
+  const isYesterday = !plan && !!yesterdayPlan
 
   const savedTime = plan
     ? new Date(plan.savedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    : null
+
+  const yesterdayDate = isYesterday && yesterdayPlan
+    ? new Date(yesterdayPlan.date + 'T00:00:00').toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' })
     : null
 
   return (
@@ -30,16 +38,27 @@ export default function PlanPanel({ isOpen, onClose, plan }: PlanPanelProps) {
         <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-6 shrink-0" />
 
         <div className="flex items-center justify-between mb-4 shrink-0">
-          <h2 className="text-base font-semibold text-white">Today&apos;s Plan</h2>
+          <h2 className="text-base font-semibold text-white">
+            {isYesterday ? 'Yesterday\u2019s Plan' : 'Today\u2019s Plan'}
+          </h2>
           {savedTime && (
             <span className="text-xs text-zinc-500">Saved {savedTime}</span>
           )}
+          {yesterdayDate && (
+            <span className="text-xs text-zinc-500">{yesterdayDate}</span>
+          )}
         </div>
 
+        {isYesterday && (
+          <p className="text-xs text-zinc-500 mb-4 shrink-0">
+            This will be replaced when you save today&apos;s plan.
+          </p>
+        )}
+
         <div className="overflow-y-auto flex-1 min-h-0">
-          {plan ? (
+          {activePlan ? (
             <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">
-              {plan.content}
+              {activePlan.content}
             </p>
           ) : (
             <p className="text-sm text-zinc-500 text-center py-8">

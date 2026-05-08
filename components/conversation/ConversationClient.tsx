@@ -161,6 +161,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
   const [memoryOpen, setMemoryOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null)
+  const [yesterdayPlan, setYesterdayPlan] = useState<SavedPlan | null>(null)
   const [savedPlanMessageId, setSavedPlanMessageId] = useState<string | null>(null)
   const [newCheckInConfirm, setNewCheckInConfirm] = useState(false)
   const [showNewDayBanner, setShowNewDayBanner] = useState(false)
@@ -220,14 +221,20 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
       try { setSavedPlan(JSON.parse(storedPlan)) } catch { /* ignore malformed */ }
     }
 
-    // Supabase is the source of truth — overwrite localStorage cache if a newer plan exists
+    // Supabase is the source of truth — overwrite localStorage cache if a newer plan exists.
+    // If no plan exists for today, fetch yesterday's so it remains accessible during Stage 2.
     const today = new Date().toISOString().split('T')[0]
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0]
     fetch(`/api/plans?date=${today}`)
       .then(r => r.json())
       .then(({ plan }) => {
         if (plan) {
           setSavedPlan(plan)
           localStorage.setItem(PLAN_KEY, JSON.stringify(plan))
+        } else {
+          return fetch(`/api/plans?date=${yesterday}`)
+            .then(r => r.json())
+            .then(({ plan: yPlan }) => { if (yPlan) setYesterdayPlan(yPlan) })
         }
       })
       .catch(() => { /* keep localStorage value on network failure */ })
@@ -800,6 +807,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
         isOpen={planOpen}
         onClose={() => setPlanOpen(false)}
         plan={savedPlan}
+        yesterdayPlan={yesterdayPlan}
       />
 
       {/* Settings modal */}

@@ -54,12 +54,25 @@ async function getAnalyticsData() {
       .gte('created_at', `${todayUtc}T00:00:00Z`),
     supabase
       .from('user_profiles')
-      .select('id, email, preferred_name, created_at, push_notifications_enabled, push_notifications_permission_status')
+      .select('id, email, preferred_name, created_at')
       .order('created_at', { ascending: false }),
     supabase
       .from('analytics_events')
       .select('user_id, event_type, created_at'),
   ])
+
+  // Fetch notification prefs separately — these columns may not exist yet if the migration
+  // hasn't been applied, so we isolate the failure here rather than nulling out allUsers.
+  const { data: notifData } = await supabase
+    .from('user_profiles')
+    .select('id, push_notifications_enabled, push_notifications_permission_status')
+  const notifMap = new Map<string, { enabled: boolean; status: string }>()
+  for (const row of notifData ?? []) {
+    notifMap.set(row.id, {
+      enabled: row.push_notifications_enabled ?? false,
+      status: row.push_notifications_permission_status ?? 'default',
+    })
+  }
 
   // Aggregate per-user stats from events
   const statsMap = new Map<string, {
@@ -108,8 +121,8 @@ async function getAnalyticsData() {
       same_day_returns: s?.returns ?? 0,
       plan_updates: s?.updates ?? 0,
       days_since: daysSince,
-      push_notifications_enabled: u.push_notifications_enabled ?? false,
-      push_notifications_permission_status: u.push_notifications_permission_status ?? 'default',
+      push_notifications_enabled: notifMap.get(u.id)?.enabled ?? false,
+      push_notifications_permission_status: notifMap.get(u.id)?.status ?? 'default',
     } as UserRow & { days_since: number | null }
   })
 

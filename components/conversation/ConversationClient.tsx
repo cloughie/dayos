@@ -8,6 +8,8 @@ import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
 import PlanPanel, { type SavedPlan } from '@/components/ui/PlanPanel'
 import type { Message } from '@/lib/types'
+import { createClient } from '@/lib/supabase/client'
+import { subscribeToPush, savePushSubscription } from '@/lib/push'
 
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
@@ -212,6 +214,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
   const prevLoadingRef = useRef(false)
   const initialScrollDoneRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
+  const [showPushPrompt, setShowPushPrompt] = useState(false)
 
   // Load from localStorage on mount, then hydrate plan from Supabase
   useEffect(() => {
@@ -259,6 +262,23 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
         }
       })
       .catch(() => { /* keep localStorage value on network failure */ })
+
+    // Show push prompt once for existing users who haven't been asked yet
+    ;(async () => {
+      const browserPerm = typeof Notification !== 'undefined' ? Notification.permission : 'granted'
+      if (browserPerm !== 'default') return
+      const supabase = createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      const { data: profile } = await supabase
+        .from('user_profiles')
+        .select('push_notifications_enabled, has_seen_push_prompt')
+        .eq('id', user.id)
+        .single()
+      if (profile && !profile.push_notifications_enabled && !profile.has_seen_push_prompt) {
+        setShowPushPrompt(true)
+      }
+    })()
 
     // First-time user arriving from onboarding — start check-in automatically
     if (autoStart && !hasStoredMessages) {
@@ -356,6 +376,36 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
     setShowNewDayBanner(false)
     setStarted(false)
     startNewDayRef.current = true
+  }
+
+  async function handlePushPromptYes() {
+    setShowPushPrompt(false)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('user_profiles').update({ has_seen_push_prompt: true }).eq('id', user.id)
+    }
+    if (typeof Notification === 'undefined') return
+    const permission = await Notification.requestPermission()
+    if (permission !== 'granted') return
+    const subscription = await subscribeToPush()
+    if (!subscription) return
+    await savePushSubscription(subscription)
+    if (user) {
+      await supabase.from('user_profiles').update({
+        push_notifications_enabled: true,
+        push_notifications_permission_status: 'granted',
+      }).eq('id', user.id)
+    }
+  }
+
+  async function handlePushPromptNo() {
+    setShowPushPrompt(false)
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user) {
+      await supabase.from('user_profiles').update({ has_seen_push_prompt: true }).eq('id', user.id)
+    }
   }
 
   function savePlan(content: string, messageId: string) {
@@ -789,6 +839,39 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
       )}
 
       </div>{/* /body wrapper */}
+
+      {/* Push prompt — shown once to existing users who haven't been asked */}
+      {showPushPrompt && messages.length === 0 && !isLoading && !started && !showNewDayBanner && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" aria-hidden="true" />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-7 flex flex-col gap-6 max-w-sm mx-auto">
+            <div>
+              <h2 className="text-base font-semibold text-white mb-3">Want a morning reminder?</h2>
+              <p className="text-sm text-zinc-300 leading-relaxed mb-4">
+                DayOS works best as a daily habit.<br />
+                Get a notification each morning to remind you to check in.
+              </p>
+              <p className="text-xs text-zinc-400">You can change this anytime in Settings.</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handlePushPromptYes}
+                className="w-full py-2.5 rounded-xl bg-white text-sm text-zinc-950 font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+              >
+                Yes, remind me
+              </button>
+              <button
+                type="button"
+                onClick={handlePushPromptNo}
+                className="w-full py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* New check-in confirmation */}
       {newCheckInConfirm && (

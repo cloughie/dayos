@@ -67,7 +67,11 @@ function OnboardingFlow() {
     const supabase = createClient()
     await supabase
       .from('user_profiles')
-      .update({ push_notifications_enabled: enabled, push_notifications_permission_status: status })
+      .update({
+        push_notifications_enabled: enabled,
+        push_notifications_permission_status: status,
+        has_seen_push_prompt: true,
+      })
       .eq('id', userId)
   }
 

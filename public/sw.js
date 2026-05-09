@@ -1,8 +1,7 @@
 self.addEventListener('push', (event) => {
   const data = event.data?.json() ?? {}
   event.waitUntil(
-    self.registration.showNotification(data.title ?? 'DayOS', {
-      body: data.body ?? 'Time to check in.',
+    self.registration.showNotification(data.body ?? 'Ready for today\'s check-in?', {
       icon: '/icon-192.png',
       badge: '/icon-192.png',
       data: { url: data.url ?? '/conversation' },

@@ -82,7 +82,7 @@ export async function GET(request: Request) {
 
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify({ title: 'DayOS', body, url: '/conversation' }),
+        JSON.stringify({ body, url: '/conversation' }),
       )
 
       await supabase

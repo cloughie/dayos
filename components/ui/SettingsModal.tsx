@@ -53,7 +53,11 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         const granted = permission === 'granted'
         if (granted) {
           const subscription = await subscribeToPush()
-          if (subscription) await savePushSubscription(subscription)
+          if (subscription) {
+            await savePushSubscription(subscription)
+          } else {
+            console.error('[Push] Permission granted but push subscription failed — check console above for reason')
+          }
         }
         await supabase.from('user_profiles').update({
           push_notifications_enabled: granted,

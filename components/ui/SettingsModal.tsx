@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
-import { subscribeToPush, savePushSubscription } from '@/lib/push'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -12,11 +11,18 @@ interface SettingsModalProps {
   onMemoryOpen: () => void
 }
 
+type DebugStep = { msg: string; ok: boolean }
+
 export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen }: SettingsModalProps) {
   const router = useRouter()
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'default'>('default')
   const [userId, setUserId] = useState<string | null>(null)
+  const [debugSteps, setDebugSteps] = useState<DebugStep[]>([])
+
+  function addStep(msg: string, ok: boolean) {
+    setDebugSteps(prev => [...prev, { msg, ok }])
+  }
 
   useEffect(() => {
     if (!isOpen) return
@@ -38,38 +44,139 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   }, [isOpen])
 
   async function handleNotificationToggle(enable: boolean) {
-    if (!userId) return
+    setDebugSteps([])
+    addStep(`1. Toggle tapped — enable=${enable}`, true)
+
+    if (!userId) {
+      addStep('2. ✗ userId is null — auth not loaded yet', false)
+      return
+    }
+    addStep(`2. userId loaded (${userId.slice(0, 8)}…)`, true)
+
     const supabase = createClient()
 
-    if (enable) {
-      if (permStatus === 'granted') {
-        const subscription = await subscribeToPush()
-        if (subscription) await savePushSubscription(subscription)
-        await supabase.from('user_profiles').update({ push_notifications_enabled: true }).eq('id', userId)
-        setNotificationsEnabled(true)
-      } else {
-        if (typeof Notification === 'undefined') return
-        const permission = await Notification.requestPermission()
-        const granted = permission === 'granted'
-        if (granted) {
-          const subscription = await subscribeToPush()
-          if (subscription) {
-            await savePushSubscription(subscription)
-          } else {
-            console.error('[Push] Permission granted but push subscription failed — check console above for reason')
-          }
-        }
-        await supabase.from('user_profiles').update({
-          push_notifications_enabled: granted,
-          push_notifications_permission_status: permission,
-        }).eq('id', userId)
-        setNotificationsEnabled(granted)
-        setPermStatus(permission as 'granted' | 'denied' | 'default')
+    // ── Disable path ──
+    if (!enable) {
+      const res = await fetch('/api/push/subscribe', { method: 'DELETE' })
+      addStep(`3. DELETE /api/push/subscribe → ${res.status}`, res.ok)
+      const { error } = await supabase
+        .from('user_profiles')
+        .update({ push_notifications_enabled: false })
+        .eq('id', userId)
+      addStep(`4. user_profiles update → ${error ? error.message : 'ok'}`, !error)
+      if (!error) setNotificationsEnabled(false)
+      return
+    }
+
+    // ── Enable path ──
+    const browserPerm = typeof Notification !== 'undefined' ? Notification.permission : 'unsupported'
+    addStep(`3. Browser Notification.permission = ${browserPerm}`, browserPerm === 'granted')
+    addStep(`4. Supabase permStatus = ${permStatus}`, permStatus === 'granted')
+
+    let effectivePerm = browserPerm
+    if (browserPerm !== 'granted') {
+      if (typeof Notification === 'undefined') {
+        addStep('5. ✗ Notification API unavailable', false)
+        return
       }
-    } else {
-      await fetch('/api/push/subscribe', { method: 'DELETE' })
-      await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
-      setNotificationsEnabled(false)
+      addStep('5. Requesting permission…', true)
+      effectivePerm = await Notification.requestPermission()
+      addStep(`6. Permission result = ${effectivePerm}`, effectivePerm === 'granted')
+      if (effectivePerm !== 'granted') {
+        await supabase.from('user_profiles').update({
+          push_notifications_enabled: false,
+          push_notifications_permission_status: effectivePerm,
+        }).eq('id', userId)
+        setNotificationsEnabled(false)
+        setPermStatus(effectivePerm as 'granted' | 'denied' | 'default')
+        return
+      }
+    }
+
+    // Permission confirmed granted — now subscribe
+    const hasSW = 'serviceWorker' in navigator
+    const hasPM = 'PushManager' in window
+    addStep(`5. serviceWorker in navigator = ${hasSW}`, hasSW)
+    addStep(`6. PushManager in window = ${hasPM}`, hasPM)
+    if (!hasSW || !hasPM) return
+
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    addStep(`7. VAPID key present = ${!!vapidKey}${vapidKey ? ` (${vapidKey.slice(0, 12)}…)` : ''}`, !!vapidKey)
+    if (!vapidKey) return
+
+    let swReg: ServiceWorkerRegistration | null = null
+    try {
+      addStep('8. Waiting for SW ready…', true)
+      swReg = await navigator.serviceWorker.ready
+      addStep(`9. SW ready — state=${swReg.active?.state ?? 'no active worker'} scope=${swReg.scope}`, true)
+    } catch (err) {
+      addStep(`9. ✗ SW ready threw: ${String(err)}`, false)
+      return
+    }
+
+    let subscription: PushSubscription | null = null
+    try {
+      subscription = await swReg.pushManager.getSubscription()
+      addStep(`10. Existing subscription = ${subscription ? subscription.endpoint.slice(0, 50) + '…' : 'none'}`, true)
+    } catch (err) {
+      addStep(`10. ✗ getSubscription() threw: ${String(err)}`, false)
+    }
+
+    if (!subscription) {
+      try {
+        addStep('11. Calling pushManager.subscribe()…', true)
+        const padding = '='.repeat((4 - (vapidKey.length % 4)) % 4)
+        const base64 = (vapidKey + padding).replace(/-/g, '+').replace(/_/g, '/')
+        const rawData = atob(base64)
+        const buffer = new ArrayBuffer(rawData.length)
+        const view = new Uint8Array(buffer)
+        for (let i = 0; i < rawData.length; i++) view[i] = rawData.charCodeAt(i)
+
+        subscription = await swReg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: buffer,
+        })
+        addStep(`12. Subscription created — endpoint: ${subscription.endpoint.slice(0, 50)}…`, true)
+      } catch (err) {
+        addStep(`12. ✗ pushManager.subscribe() threw: ${String(err)}`, false)
+        return
+      }
+    }
+
+    const json = subscription.toJSON()
+    const hasKeys = !!(json.endpoint && json.keys?.p256dh && json.keys?.auth)
+    addStep(`13. toJSON() has endpoint+keys = ${hasKeys}`, hasKeys)
+    if (!hasKeys) return
+
+    try {
+      addStep('14. POSTing to /api/push/subscribe…', true)
+      const res = await fetch('/api/push/subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          endpoint: json.endpoint,
+          p256dh: json.keys!.p256dh,
+          auth: json.keys!.auth,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        }),
+      })
+      const body = await res.text()
+      addStep(`15. API response: ${res.status} ${body}`, res.ok)
+      if (!res.ok) return
+    } catch (err) {
+      addStep(`15. ✗ fetch threw: ${String(err)}`, false)
+      return
+    }
+
+    const { error: profileErr } = await supabase.from('user_profiles').update({
+      push_notifications_enabled: true,
+      push_notifications_permission_status: 'granted',
+    }).eq('id', userId)
+    addStep(`16. user_profiles update → ${profileErr ? profileErr.message : 'ok'}`, !profileErr)
+
+    if (!profileErr) {
+      setNotificationsEnabled(true)
+      setPermStatus('granted')
     }
   }
 
@@ -128,6 +235,17 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
             />
           </button>
         </div>
+
+        {/* Debug panel — temporary */}
+        {debugSteps.length > 0 && (
+          <div className="mb-2 rounded-xl bg-zinc-950 border border-zinc-800 px-3 py-2.5 max-h-48 overflow-y-auto">
+            {debugSteps.map((s, i) => (
+              <p key={i} className={`text-[11px] font-mono leading-5 ${s.ok ? 'text-zinc-400' : 'text-red-400'}`}>
+                {s.ok ? '✓' : '✗'} {s.msg}
+              </p>
+            ))}
+          </div>
+        )}
 
         {/* Memory */}
         <button

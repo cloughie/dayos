@@ -12,7 +12,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
     }
 
-    await supabase.from('push_subscriptions').upsert({
+    const { error: upsertError } = await supabase.from('push_subscriptions').upsert({
       user_id: user.id,
       endpoint,
       p256dh,
@@ -20,6 +20,11 @@ export async function POST(request: Request) {
       timezone: timezone ?? 'UTC',
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id' })
+
+    if (upsertError) {
+      console.error('[Push] Upsert failed:', upsertError)
+      return NextResponse.json({ error: upsertError.message }, { status: 500 })
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

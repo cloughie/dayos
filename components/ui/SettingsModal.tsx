@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { subscribeToPush, savePushSubscription } from '@/lib/push'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -42,12 +43,18 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
 
     if (enable) {
       if (permStatus === 'granted') {
+        const subscription = await subscribeToPush()
+        if (subscription) await savePushSubscription(subscription)
         await supabase.from('user_profiles').update({ push_notifications_enabled: true }).eq('id', userId)
         setNotificationsEnabled(true)
       } else {
         if (typeof Notification === 'undefined') return
         const permission = await Notification.requestPermission()
         const granted = permission === 'granted'
+        if (granted) {
+          const subscription = await subscribeToPush()
+          if (subscription) await savePushSubscription(subscription)
+        }
         await supabase.from('user_profiles').update({
           push_notifications_enabled: granted,
           push_notifications_permission_status: permission,
@@ -56,6 +63,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         setPermStatus(permission as 'granted' | 'denied' | 'default')
       }
     } else {
+      await fetch('/api/push/subscribe', { method: 'DELETE' })
       await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
       setNotificationsEnabled(false)
     }

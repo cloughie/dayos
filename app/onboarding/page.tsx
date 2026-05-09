@@ -3,6 +3,7 @@
 import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
+import { subscribeToPush, savePushSubscription } from '@/lib/push'
 
 type Step = 'name' | 'welcome'
 
@@ -73,18 +74,22 @@ function OnboardingFlow() {
   async function handleReminderYes() {
     if (typeof Notification === 'undefined') {
       await saveNotificationPrefs(false, 'denied')
-      router.push('/conversation?autoStart=1')
+      router.push('/conversation')
       return
     }
     const permission = await Notification.requestPermission()
     const enabled = permission === 'granted'
     await saveNotificationPrefs(enabled, permission as 'granted' | 'denied' | 'default')
-    router.push('/conversation?autoStart=1')
+    if (enabled) {
+      const subscription = await subscribeToPush()
+      if (subscription) await savePushSubscription(subscription)
+    }
+    router.push('/conversation')
   }
 
   async function handleReminderNo() {
     await saveNotificationPrefs(false, 'default')
-    router.push('/conversation?autoStart=1')
+    router.push('/conversation')
   }
 
   return (

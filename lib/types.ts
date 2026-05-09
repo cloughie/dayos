@@ -40,5 +40,7 @@ export type UserProfile = {
   preferred_name: string
   onboarding_notes?: string
   onboarding_complete: boolean
+  push_notifications_enabled: boolean
+  push_notifications_permission_status: 'granted' | 'denied' | 'default'
   created_at: string
 }

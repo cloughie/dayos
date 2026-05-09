@@ -12,6 +12,8 @@ interface UserRow {
   plans_saved: number
   same_day_returns: number
   plan_updates: number
+  push_notifications_enabled: boolean
+  push_notifications_permission_status: string
 }
 
 async function getAnalyticsData() {
@@ -52,7 +54,7 @@ async function getAnalyticsData() {
       .gte('created_at', `${todayUtc}T00:00:00Z`),
     supabase
       .from('user_profiles')
-      .select('id, email, preferred_name, created_at')
+      .select('id, email, preferred_name, created_at, push_notifications_enabled, push_notifications_permission_status')
       .order('created_at', { ascending: false }),
     supabase
       .from('analytics_events')
@@ -106,6 +108,8 @@ async function getAnalyticsData() {
       same_day_returns: s?.returns ?? 0,
       plan_updates: s?.updates ?? 0,
       days_since: daysSince,
+      push_notifications_enabled: u.push_notifications_enabled ?? false,
+      push_notifications_permission_status: u.push_notifications_permission_status ?? 'default',
     } as UserRow & { days_since: number | null }
   })
 
@@ -154,7 +158,7 @@ export default async function AnalyticsPage() {
         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
           <thead>
             <tr style={{ borderBottom: '1px solid #27272a', color: '#71717a', textAlign: 'left' }}>
-              {['User', 'Email', 'Last used', 'Days since', 'Days used', 'Plans saved', 'Returns', 'Plan updates'].map(h => (
+              {['User', 'Email', 'Last used', 'Days since', 'Days used', 'Plans saved', 'Returns', 'Plan updates', 'Push reminders'].map(h => (
                 <th key={h} style={{ padding: '8px 12px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
               ))}
             </tr>
@@ -176,12 +180,15 @@ export default async function AnalyticsPage() {
                   <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.plans_saved}</td>
                   <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.same_day_returns}</td>
                   <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.plan_updates}</td>
+                  <td style={{ padding: '10px 12px' }}>
+                    {row.push_notifications_enabled ? '✅ Enabled' : '❌ Off'}
+                  </td>
                 </tr>
               )
             })}
             {data.userRows.length === 0 && (
               <tr>
-                <td colSpan={8} style={{ padding: '24px 12px', color: '#71717a', textAlign: 'center' }}>No users yet.</td>
+                <td colSpan={9} style={{ padding: '24px 12px', color: '#71717a', textAlign: 'center' }}>No users yet.</td>
               </tr>
             )}
           </tbody>

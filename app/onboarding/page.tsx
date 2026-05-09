@@ -15,6 +15,8 @@ function OnboardingFlow() {
   const [preferredName, setPreferredName] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showReminderModal, setShowReminderModal] = useState(false)
+  const [userId, setUserId] = useState<string | null>(null)
 
   function handleNameContinue(e: React.FormEvent) {
     e.preventDefault()
@@ -23,9 +25,8 @@ function OnboardingFlow() {
   }
 
   async function handleContinue() {
-    // Test mode: skip saving, go straight to conversation
     if (isTestMode) {
-      router.push('/conversation')
+      setShowReminderModal(true)
       return
     }
 
@@ -55,7 +56,35 @@ function OnboardingFlow() {
       return
     }
 
-    router.push('/conversation')
+    setUserId(user.id)
+    setIsLoading(false)
+    setShowReminderModal(true)
+  }
+
+  async function saveNotificationPrefs(enabled: boolean, status: 'granted' | 'denied' | 'default') {
+    if (!userId || isTestMode) return
+    const supabase = createClient()
+    await supabase
+      .from('user_profiles')
+      .update({ push_notifications_enabled: enabled, push_notifications_permission_status: status })
+      .eq('id', userId)
+  }
+
+  async function handleReminderYes() {
+    if (typeof Notification === 'undefined') {
+      await saveNotificationPrefs(false, 'denied')
+      router.push('/conversation?autoStart=1')
+      return
+    }
+    const permission = await Notification.requestPermission()
+    const enabled = permission === 'granted'
+    await saveNotificationPrefs(enabled, permission as 'granted' | 'denied' | 'default')
+    router.push('/conversation?autoStart=1')
+  }
+
+  async function handleReminderNo() {
+    await saveNotificationPrefs(false, 'default')
+    router.push('/conversation?autoStart=1')
   }
 
   return (
@@ -129,6 +158,38 @@ function OnboardingFlow() {
         )}
 
       </div>
+
+      {/* Morning reminder modal */}
+      {showReminderModal && (
+        <>
+          <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" aria-hidden="true" />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-6 flex flex-col gap-4 max-w-sm mx-auto">
+            <div>
+              <h2 className="text-base font-semibold text-white mb-2">Want a morning reminder?</h2>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-1">
+                DayOS works best as a daily habit. We can send you a notification each morning to remind you to check in.
+              </p>
+              <p className="text-xs text-zinc-600 mt-2">You can change this anytime in Settings.</p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleReminderYes}
+                className="w-full py-2.5 rounded-xl bg-white text-sm text-zinc-950 font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+              >
+                Yes, remind me
+              </button>
+              <button
+                type="button"
+                onClick={handleReminderNo}
+                className="w-full py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              >
+                Not now
+              </button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }

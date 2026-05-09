@@ -166,11 +166,11 @@ function OnboardingFlow() {
           <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-7 flex flex-col gap-6 max-w-sm mx-auto">
             <div>
               <h2 className="text-base font-semibold text-white mb-3">Want a morning reminder?</h2>
-              <p className="text-sm text-zinc-400 leading-relaxed mb-4">
+              <p className="text-sm text-zinc-300 leading-relaxed mb-4">
                 DayOS works best as a daily habit.<br />
                 Get a notification each morning to remind you to check in.
               </p>
-              <p className="text-xs text-zinc-500">You can change this anytime in Settings.</p>
+              <p className="text-xs text-zinc-400">You can change this anytime in Settings.</p>
             </div>
             <div className="flex flex-col gap-2">
               <button

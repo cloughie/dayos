@@ -18,7 +18,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'default'>('default')
   const [userId, setUserId] = useState<string | null>(null)
-  const [debugSteps, setDebugSteps] = useState<DebugStep[]>([])
+  const [debugSteps, setDebugSteps] = useState<DebugStep[]>([
+    { msg: 'Debug panel active — tap Morning reminder to test', ok: true },
+  ])
 
   function addStep(msg: string, ok: boolean) {
     setDebugSteps(prev => [...prev, { msg, ok }])
@@ -237,15 +239,14 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         </div>
 
         {/* Debug panel — temporary */}
-        {debugSteps.length > 0 && (
-          <div className="mb-2 rounded-xl bg-zinc-950 border border-zinc-800 px-3 py-2.5 max-h-48 overflow-y-auto">
-            {debugSteps.map((s, i) => (
-              <p key={i} className={`text-[11px] font-mono leading-5 ${s.ok ? 'text-zinc-400' : 'text-red-400'}`}>
-                {s.ok ? '✓' : '✗'} {s.msg}
-              </p>
-            ))}
-          </div>
-        )}
+        <div className="mb-2 rounded-xl bg-zinc-950 border border-zinc-700 px-3 py-2.5 max-h-52 overflow-y-auto">
+          <p className="text-[10px] font-mono text-zinc-600 mb-1">build: push-debug-v2</p>
+          {debugSteps.map((s, i) => (
+            <p key={i} className={`text-[11px] font-mono leading-5 ${s.ok ? 'text-zinc-400' : 'text-red-400'}`}>
+              {s.ok ? '✓' : '✗'} {s.msg}
+            </p>
+          ))}
+        </div>
 
         {/* Memory */}
         <button

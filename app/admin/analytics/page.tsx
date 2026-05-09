@@ -167,46 +167,44 @@ export default async function AnalyticsPage() {
       <h2 style={{ fontSize: '13px', fontWeight: 600, color: '#a1a1aa', marginBottom: '12px', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
         Users ({data.userRows.length})
       </h2>
-      <div style={{ overflowX: 'auto' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-          <thead>
-            <tr style={{ borderBottom: '1px solid #27272a', color: '#71717a', textAlign: 'left' }}>
-              {['User', 'Email', 'Last used', 'Days since', 'Days used', 'Plans saved', 'Returns', 'Plan updates', 'Push reminders'].map(h => (
-                <th key={h} style={{ padding: '8px 12px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {data.userRows.map((row) => {
-              const r = row as UserRow & { days_since: number | null }
-              return (
-                <tr key={row.id} style={{ borderBottom: '1px solid #18181b' }}>
-                  <td style={{ padding: '10px 12px', color: '#fff' }}>{row.preferred_name}</td>
-                  <td style={{ padding: '10px 12px', color: '#a1a1aa' }}>{row.email}</td>
-                  <td style={{ padding: '10px 12px', color: '#a1a1aa', whiteSpace: 'nowrap' }}>
-                    {row.last_used ? new Date(row.last_used).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                  </td>
-                  <td style={{ padding: '10px 12px', color: r.days_since === 0 ? '#4ade80' : r.days_since !== null && r.days_since <= 2 ? '#facc15' : '#71717a' }}>
-                    {r.days_since === null ? '—' : r.days_since === 0 ? 'today' : `${r.days_since}d`}
-                  </td>
-                  <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.days_used}</td>
-                  <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.plans_saved}</td>
-                  <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.same_day_returns}</td>
-                  <td style={{ padding: '10px 12px', color: '#e4e4e7' }}>{row.plan_updates}</td>
-                  <td style={{ padding: '10px 12px' }}>
-                    {row.push_notifications_enabled ? '✅ Enabled' : '❌ Off'}
-                  </td>
-                </tr>
-              )
-            })}
-            {data.userRows.length === 0 && (
-              <tr>
-                <td colSpan={9} style={{ padding: '24px 12px', color: '#71717a', textAlign: 'center' }}>No users yet.</td>
+      <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+        <thead>
+          <tr style={{ borderBottom: '1px solid #27272a', color: '#71717a', textAlign: 'left' }}>
+            {['User', 'Email', 'Last used', 'Since', 'Days', 'Plans', 'Returns', 'Updates', 'Push'].map(h => (
+              <th key={h} style={{ padding: '8px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.userRows.map((row) => {
+            const r = row as UserRow & { days_since: number | null }
+            return (
+              <tr key={row.id} style={{ borderBottom: '1px solid #18181b' }}>
+                <td style={{ padding: '8px', color: '#fff', whiteSpace: 'nowrap' }}>{row.preferred_name}</td>
+                <td style={{ padding: '8px', color: '#a1a1aa', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{row.email}</td>
+                <td style={{ padding: '8px', color: '#a1a1aa', whiteSpace: 'nowrap' }}>
+                  {row.last_used ? new Date(row.last_used).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                </td>
+                <td style={{ padding: '8px', color: r.days_since === 0 ? '#4ade80' : r.days_since !== null && r.days_since <= 2 ? '#facc15' : '#71717a' }}>
+                  {r.days_since === null ? '—' : r.days_since === 0 ? 'today' : `${r.days_since}d`}
+                </td>
+                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.days_used}</td>
+                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.plans_saved}</td>
+                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.same_day_returns}</td>
+                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.plan_updates}</td>
+                <td style={{ padding: '8px' }}>
+                  {row.push_notifications_enabled ? '✅' : '—'}
+                </td>
               </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+            )
+          })}
+          {data.userRows.length === 0 && (
+            <tr>
+              <td colSpan={9} style={{ padding: '24px 8px', color: '#71717a', textAlign: 'center' }}>No users yet.</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   )
 }

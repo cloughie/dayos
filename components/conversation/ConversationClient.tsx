@@ -841,7 +841,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
       </div>{/* /body wrapper */}
 
       {/* Push prompt — shown once to existing users who haven't been asked */}
-      {showPushPrompt && messages.length === 0 && !isLoading && !started && !showNewDayBanner && (
+      {showPushPrompt && !isLoading && !started && (
         <>
           <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm" aria-hidden="true" />
           <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-7 flex flex-col gap-6 max-w-sm mx-auto">

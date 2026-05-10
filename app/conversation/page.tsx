@@ -27,7 +27,7 @@ export default async function ConversationPage({
   // Check onboarding completion — redirect new users to onboarding
   const { data: profile } = await supabase
     .from('user_profiles')
-    .select('onboarding_complete')
+    .select('onboarding_complete, has_started_checkin')
     .eq('id', user.id)
     .single()
 
@@ -35,17 +35,17 @@ export default async function ConversationPage({
     redirect('/onboarding')
   }
 
-  // Determine if this is genuinely a first-time user by checking for any
-  // saved plan in Supabase. localStorage is browser/context scoped so it
-  // cannot be used as the sole guard — existing users opening the PWA for
-  // the first time will have empty localStorage but are not new users.
+  // has_started_checkin is the primary server-side signal that a user has
+  // genuinely used the app. Plans are a secondary fallback for users who
+  // existed before this flag was introduced.
   const { count: planCount } = await supabase
     .from('plans')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user.id)
     .limit(1)
 
-  const hasExistingData = (planCount ?? 0) > 0
+  const hasExistingData =
+    !!profile?.has_started_checkin || (planCount ?? 0) > 0
 
   const autoStart = params.autostart === '1'
 

@@ -530,6 +530,21 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     setStarted(true)
     trackAnalyticsEvent('daily_checkin_started')
     sendMessage(message, true)
+
+    // Persist usage signal so we never show the first-time screen again on
+    // any device. Fire-and-forget — failure is silent and non-blocking.
+    if (!hasExistingData) {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase
+            .from('user_profiles')
+            .update({ has_started_checkin: true })
+            .eq('id', user.id)
+            .then(() => {})
+        }
+      })
+    }
   }
 
   function handleSend() {

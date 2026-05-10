@@ -43,11 +43,17 @@ export async function POST(request: Request) {
     const { messages, clientTime }: { messages: Message[]; clientTime?: string } = await request.json()
 
     let memoryContext = ''
+    let preferredName = ''
     try {
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
-        memoryContext = await loadMemoryContext(user.id)
+        const [memory, profile] = await Promise.all([
+          loadMemoryContext(user.id),
+          supabase.from('user_profiles').select('preferred_name').eq('id', user.id).single(),
+        ])
+        memoryContext = memory
+        preferredName = profile.data?.preferred_name ?? ''
       }
     } catch (err) {
       console.error('[Memory] Failed to load memories:', err)
@@ -62,7 +68,8 @@ export async function POST(request: Request) {
       ? `The current local date and time is ${clientTime}. Use this as ground truth for any references to today, tomorrow, this morning, this afternoon, or this evening.`
       : ''
 
-    const systemPrompt = [datetimeContext, memoryContext].filter(Boolean).join('\n\n')
+    const nameContext = preferredName ? `User preferred name: ${preferredName}` : ''
+    const systemPrompt = [datetimeContext, nameContext, memoryContext].filter(Boolean).join('\n\n')
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[Chat] Messages sent to Claude:')

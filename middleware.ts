@@ -45,11 +45,18 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(loginUrl)
   }
 
-  // Authenticated user trying to access auth routes → redirect to home
+  // Authenticated user hitting / → skip the server component redirect entirely
+  if (user && pathname === '/') {
+    const conversationUrl = request.nextUrl.clone()
+    conversationUrl.pathname = '/conversation'
+    return NextResponse.redirect(conversationUrl)
+  }
+
+  // Authenticated user trying to access auth routes → redirect to conversation
   if (user && isAuthRoute) {
-    const homeUrl = request.nextUrl.clone()
-    homeUrl.pathname = '/'
-    return NextResponse.redirect(homeUrl)
+    const conversationUrl = request.nextUrl.clone()
+    conversationUrl.pathname = '/conversation'
+    return NextResponse.redirect(conversationUrl)
   }
 
   return supabaseResponse

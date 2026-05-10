@@ -12,25 +12,11 @@ export default function Loading() {
         gap: '12px',
       }}
     >
-      <div
-        style={{
-          width: '40px',
-          height: '40px',
-          borderRadius: '10px',
-          backgroundColor: '#6366f1',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <circle cx="11" cy="11" r="4" fill="white" fillOpacity="0.9" />
-          <circle cx="11" cy="4" r="2" fill="white" fillOpacity="0.5" />
-          <circle cx="11" cy="18" r="2" fill="white" fillOpacity="0.5" />
-          <circle cx="4" cy="11" r="2" fill="white" fillOpacity="0.5" />
-          <circle cx="18" cy="11" r="2" fill="white" fillOpacity="0.5" />
-        </svg>
-      </div>
+      <img
+        src="/apple-touch-icon.png"
+        alt="DayOS"
+        style={{ width: '72px', height: '72px', borderRadius: '16px' }}
+      />
       <span
         style={{
           color: '#a1a1aa',

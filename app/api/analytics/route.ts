@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { trackEvent, eventFiredToday, type AnalyticsEventType } from '@/lib/analytics'
 
 const VALID_EVENTS: AnalyticsEventType[] = [
+  'app_opened',
   'daily_checkin_started',
   'plan_saved',
   'plan_updated',
@@ -18,6 +19,12 @@ export async function POST(request: Request) {
     const { event_type } = await request.json()
     if (!VALID_EVENTS.includes(event_type)) {
       return NextResponse.json({ error: 'Invalid event_type' }, { status: 400 })
+    }
+
+    // Deduplicate app_opened: only fire once per user per calendar day.
+    if (event_type === 'app_opened') {
+      const alreadyFired = await eventFiredToday(user.id, 'app_opened')
+      if (alreadyFired) return NextResponse.json({ ok: true, skipped: true })
     }
 
     // Deduplicate returned_same_day: only fire once per user per day,

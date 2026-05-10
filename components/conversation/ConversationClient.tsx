@@ -222,6 +222,11 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
 
+  // Record app open once per calendar day — drives DAU/WAU on the dashboard
+  useEffect(() => {
+    trackAnalyticsEvent('app_opened')
+  }, [])
+
   // Load from localStorage on mount, then hydrate plan from Supabase
   useEffect(() => {
     let hasStoredMessages = false

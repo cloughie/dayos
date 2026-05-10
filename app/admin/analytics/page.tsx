@@ -8,7 +8,8 @@ interface UserRow {
   preferred_name: string
   created_at: string
   last_used: string | null
-  days_used: number
+  days_active: number
+  checkins: number
   plans_saved: number
   same_day_returns: number
   plan_updates: number
@@ -23,22 +24,13 @@ async function getAnalyticsData() {
   const weekAgoUtc = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
 
   const [
-    { count: dau },
-    { count: wau },
     { count: totalUsers },
     { count: plansSavedToday },
     { count: returnsToday },
     { data: allUsers },
-    { data: allEvents },
+    { data: openEvents },
+    { data: behavioralEvents },
   ] = await Promise.all([
-    supabase
-      .from('analytics_events')
-      .select('user_id', { count: 'exact', head: true })
-      .gte('created_at', `${todayUtc}T00:00:00Z`),
-    supabase
-      .from('analytics_events')
-      .select('user_id', { count: 'exact', head: true })
-      .gte('created_at', `${weekAgoUtc}T00:00:00Z`),
     supabase
       .from('user_profiles')
       .select('id', { count: 'exact', head: true }),
@@ -56,9 +48,16 @@ async function getAnalyticsData() {
       .from('user_profiles')
       .select('id, email, preferred_name, created_at')
       .order('created_at', { ascending: false }),
+    // app_opened drives DAU, WAU, Last active, Days active
     supabase
       .from('analytics_events')
-      .select('user_id, event_type, created_at'),
+      .select('user_id, created_at')
+      .eq('event_type', 'app_opened'),
+    // behavioural events for per-user stats only
+    supabase
+      .from('analytics_events')
+      .select('user_id, event_type, created_at')
+      .in('event_type', ['daily_checkin_started', 'plan_saved', 'plan_updated', 'returned_same_day']),
   ])
 
   // Fetch notification prefs separately — these columns may not exist yet if the migration
@@ -74,39 +73,40 @@ async function getAnalyticsData() {
     })
   }
 
-  // Aggregate per-user stats from events
-  const statsMap = new Map<string, {
-    lastUsed: string | null
-    dates: Set<string>
-    plansSaved: number
-    returns: number
-    updates: number
-  }>()
-
-  for (const event of allEvents ?? []) {
-    if (!statsMap.has(event.user_id)) {
-      statsMap.set(event.user_id, { lastUsed: null, dates: new Set(), plansSaved: 0, returns: 0, updates: 0 })
-    }
-    const s = statsMap.get(event.user_id)!
-    if (!s.lastUsed || event.created_at > s.lastUsed) s.lastUsed = event.created_at
-    s.dates.add(event.created_at.split('T')[0])
-    if (event.event_type === 'plan_saved') s.plansSaved++
-    if (event.event_type === 'returned_same_day') s.returns++
-    if (event.event_type === 'plan_updated') s.updates++
-  }
-
-  // Count distinct users for DAU/WAU (approximate — Supabase count with head:true counts rows not distinct)
-  // Re-compute from events for accuracy
+  // DAU/WAU and per-user activity derived exclusively from app_opened
   const dauSet = new Set<string>()
   const wauSet = new Set<string>()
-  for (const event of allEvents ?? []) {
+  const openStatsMap = new Map<string, { lastOpened: string | null; dates: Set<string> }>()
+
+  for (const event of openEvents ?? []) {
+    if (!openStatsMap.has(event.user_id)) {
+      openStatsMap.set(event.user_id, { lastOpened: null, dates: new Set() })
+    }
+    const s = openStatsMap.get(event.user_id)!
+    if (!s.lastOpened || event.created_at > s.lastOpened) s.lastOpened = event.created_at
+    s.dates.add(event.created_at.split('T')[0])
     if (event.created_at >= `${todayUtc}T00:00:00Z`) dauSet.add(event.user_id)
     if (event.created_at >= `${weekAgoUtc}T00:00:00Z`) wauSet.add(event.user_id)
   }
 
+  // Behavioural stats (check-ins, plans, returns) from separate event stream
+  const behavioralStatsMap = new Map<string, { plansSaved: number; returns: number; updates: number; checkins: number }>()
+
+  for (const event of behavioralEvents ?? []) {
+    if (!behavioralStatsMap.has(event.user_id)) {
+      behavioralStatsMap.set(event.user_id, { plansSaved: 0, returns: 0, updates: 0, checkins: 0 })
+    }
+    const s = behavioralStatsMap.get(event.user_id)!
+    if (event.event_type === 'daily_checkin_started') s.checkins++
+    if (event.event_type === 'plan_saved') s.plansSaved++
+    if (event.event_type === 'plan_updated') s.updates++
+    if (event.event_type === 'returned_same_day') s.returns++
+  }
+
   const userRows: UserRow[] = (allUsers ?? []).map((u) => {
-    const s = statsMap.get(u.id)
-    const lastUsed = s?.lastUsed ?? null
+    const open = openStatsMap.get(u.id)
+    const beh = behavioralStatsMap.get(u.id)
+    const lastUsed = open?.lastOpened ?? null
     const daysSince = lastUsed
       ? Math.floor((Date.now() - new Date(lastUsed).getTime()) / 86400000)
       : null
@@ -116,10 +116,11 @@ async function getAnalyticsData() {
       preferred_name: u.preferred_name ?? '—',
       created_at: u.created_at,
       last_used: lastUsed,
-      days_used: s?.dates.size ?? 0,
-      plans_saved: s?.plansSaved ?? 0,
-      same_day_returns: s?.returns ?? 0,
-      plan_updates: s?.updates ?? 0,
+      days_active: open?.dates.size ?? 0,
+      checkins: beh?.checkins ?? 0,
+      plans_saved: beh?.plansSaved ?? 0,
+      same_day_returns: beh?.returns ?? 0,
+      plan_updates: beh?.updates ?? 0,
       days_since: daysSince,
       push_notifications_enabled: notifMap.get(u.id)?.enabled ?? false,
       push_notifications_permission_status: notifMap.get(u.id)?.status ?? 'default',
@@ -134,6 +135,7 @@ async function getAnalyticsData() {
     returnsToday: returnsToday ?? 0,
     userRows,
   }
+
 }
 
 export default async function AnalyticsPage() {
@@ -170,7 +172,7 @@ export default async function AnalyticsPage() {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #27272a', color: '#71717a', textAlign: 'left' }}>
-            {['Name', 'Email', 'Last active', 'Age', 'Days active', 'Plans saved', 'Same-day returns', 'Plan updates', 'Push'].map(h => (
+            {['Name', 'Email', 'Last active', 'Age', 'Days active', 'Check-ins', 'Plans saved', 'Same-day returns', 'Plan updates', 'Push'].map(h => (
               <th key={h} style={{ padding: '8px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
@@ -188,7 +190,8 @@ export default async function AnalyticsPage() {
                 <td style={{ padding: '8px', color: r.days_since === 0 ? '#4ade80' : r.days_since !== null && r.days_since <= 2 ? '#facc15' : '#71717a' }}>
                   {r.days_since === null ? '—' : r.days_since === 0 ? 'today' : `${r.days_since}d`}
                 </td>
-                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.days_used}</td>
+                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.days_active}</td>
+                <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.checkins}</td>
                 <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.plans_saved}</td>
                 <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.same_day_returns}</td>
                 <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.plan_updates}</td>
@@ -200,7 +203,7 @@ export default async function AnalyticsPage() {
           })}
           {data.userRows.length === 0 && (
             <tr>
-              <td colSpan={9} style={{ padding: '24px 8px', color: '#71717a', textAlign: 'center' }}>No users yet.</td>
+              <td colSpan={10} style={{ padding: '24px 8px', color: '#71717a', textAlign: 'center' }}>No users yet.</td>
             </tr>
           )}
         </tbody>

@@ -1,6 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 
 export type AnalyticsEventType =
+  | 'app_opened'
   | 'daily_checkin_started'
   | 'plan_saved'
   | 'plan_updated'

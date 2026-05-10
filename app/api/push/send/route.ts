@@ -3,18 +3,18 @@ import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase/admin'
 
 const MESSAGES = [
-  "Ready for today's check-in?",
-  'Time for your DayOS check-in.',
-  'Take five minutes to check in with yourself.',
-  'Check in before the day gets away from you.',
-  'Clear your head for the day — check in with DayOS.',
-  'Five minutes for clarity? Time to check in.',
-  'Morning. Ready to check in?',
-  'Check in and get clear on what matters today.',
+  { title: 'Ready to check in?',       body: 'Five minutes to get clear on what matters today.' },
+  { title: 'Time to check in',         body: 'A quick reset before the day gets away from you.' },
+  { title: 'Take five minutes',        body: 'Clear your head and focus on what matters today.' },
+  { title: 'Before the day runs away', body: 'Pause for five minutes and think clearly about today.' },
+  { title: 'Get clear for today',      body: 'A small check-in now can change the whole day.' },
+  { title: 'Five minutes for clarity', body: 'Slow down for a moment and focus on what matters.' },
+  { title: 'Morning check-in?',        body: 'Start the day with a little more clarity and intention.' },
+  { title: 'What matters today?',      body: 'A quick check-in to clear your head and set direction.' },
 ]
 
-function pickMessage(last: string | null): string {
-  const pool = last ? MESSAGES.filter((m) => m !== last) : MESSAGES
+function pickMessage(lastTitle: string | null): { title: string; body: string } {
+  const pool = lastTitle ? MESSAGES.filter((m) => m.title !== lastTitle) : MESSAGES
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
@@ -78,17 +78,17 @@ export async function GET(request: Request) {
       )
       if (usedToday) continue
 
-      const body = pickMessage(sub.last_notification_body)
+      const message = pickMessage(sub.last_notification_body)
 
       await webpush.sendNotification(
         { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-        JSON.stringify({ body, url: '/conversation' }),
+        JSON.stringify({ title: message.title, body: message.body, url: '/conversation' }),
       )
 
       await supabase
         .from('push_subscriptions')
         .update({
-          last_notification_body: body,
+          last_notification_body: message.title,
           last_sent_at: now.toISOString(),
           updated_at: now.toISOString(),
         })

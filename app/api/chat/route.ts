@@ -40,7 +40,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { messages, clientTime }: { messages: Message[]; clientTime?: string } = await request.json()
+    const { messages }: { messages: Message[] } = await request.json()
 
     let memoryContext = ''
     let preferredName = ''
@@ -64,12 +64,8 @@ export async function POST(request: Request) {
       content: msg.content,
     }))
 
-    const datetimeContext = clientTime
-      ? `The current local date and time is ${clientTime}. Use this as ground truth for any references to today, tomorrow, this morning, this afternoon, or this evening.`
-      : ''
-
     const nameContext = preferredName ? `User preferred name: ${preferredName}` : ''
-    const systemPrompt = [datetimeContext, nameContext, memoryContext].filter(Boolean).join('\n\n')
+    const systemPrompt = [nameContext, memoryContext].filter(Boolean).join('\n\n')
 
     if (process.env.NODE_ENV === 'development') {
       console.log('[Chat] Messages sent to Claude:')

@@ -462,19 +462,10 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
       setInput('')
 
       try {
-        // Build a local datetime string at send time so the model always has
-        // accurate, timezone-aware context — server time would be UTC and wrong.
-        const now = new Date()
-        const clientTime = [
-          now.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }),
-          now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }),
-          Intl.DateTimeFormat().resolvedOptions().timeZone,
-        ].join(', ')
-
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: updatedMessages, clientTime }),
+          body: JSON.stringify({ messages: updatedMessages }),
         })
 
         if (!response.ok) {

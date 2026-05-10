@@ -35,7 +35,19 @@ export default async function ConversationPage({
     redirect('/onboarding')
   }
 
+  // Determine if this is genuinely a first-time user by checking for any
+  // saved plan in Supabase. localStorage is browser/context scoped so it
+  // cannot be used as the sole guard — existing users opening the PWA for
+  // the first time will have empty localStorage but are not new users.
+  const { count: planCount } = await supabase
+    .from('plans')
+    .select('id', { count: 'exact', head: true })
+    .eq('user_id', user.id)
+    .limit(1)
+
+  const hasExistingData = (planCount ?? 0) > 0
+
   const autoStart = params.autostart === '1'
 
-  return <ConversationClient userEmail={user.email ?? ''} autoStart={autoStart} />
+  return <ConversationClient userEmail={user.email ?? ''} autoStart={autoStart} hasExistingData={hasExistingData} />
 }

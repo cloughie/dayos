@@ -179,9 +179,10 @@ function TypingIndicator() {
 interface ConversationClientProps {
   userEmail: string
   autoStart?: boolean
+  hasExistingData?: boolean
 }
 
-export default function ConversationClient({ userEmail, autoStart = false }: ConversationClientProps) {
+export default function ConversationClient({ userEmail, autoStart = false, hasExistingData = false }: ConversationClientProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -651,8 +652,14 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
 
         {messages.length === 0 && !isLoading && !started && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
-            <p className="text-white font-medium text-base mb-1">Ready to start your first check-in?</p>
-            <p className="text-zinc-500 text-sm mb-8">Best experienced properly in the morning when planning your day.</p>
+            {hasExistingData ? (
+              <p className="text-white font-medium text-base mb-8">Ready to start today&apos;s check-in?</p>
+            ) : (
+              <>
+                <p className="text-white font-medium text-base mb-1">Ready to start your first check-in?</p>
+                <p className="text-zinc-500 text-sm mb-8">Best experienced properly in the morning when planning your day.</p>
+              </>
+            )}
             <button
               type="button"
               onClick={startCheckIn}

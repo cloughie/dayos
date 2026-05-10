@@ -170,7 +170,7 @@ export default async function AnalyticsPage() {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #27272a', color: '#71717a', textAlign: 'left' }}>
-            {['User', 'Email', 'Last used', 'Since', 'Days', 'Plans', 'Returns', 'Updates', 'Push'].map(h => (
+            {['Name', 'Email', 'Last active', 'Age', 'Days active', 'Plans saved', 'Same-day returns', 'Plan updates', 'Push'].map(h => (
               <th key={h} style={{ padding: '8px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>

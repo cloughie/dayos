@@ -172,7 +172,7 @@ export default async function AnalyticsPage() {
       <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
         <thead>
           <tr style={{ borderBottom: '1px solid #27272a', color: '#71717a', textAlign: 'left' }}>
-            {['Name', 'Email', 'Last active', 'Age', 'Days active', 'Check-ins', 'Plans saved', 'Same-day returns', 'Plan updates', 'Push'].map(h => (
+            {['Name', 'Email', 'Last active', 'Last seen', 'Days active', 'Check-ins', 'Plans saved', 'Same-day returns', 'Plan updates', 'Push'].map(h => (
               <th key={h} style={{ padding: '8px', fontWeight: 500, whiteSpace: 'nowrap' }}>{h}</th>
             ))}
           </tr>
@@ -188,7 +188,7 @@ export default async function AnalyticsPage() {
                   {row.last_used ? new Date(row.last_used).toLocaleString('en-GB', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
                 </td>
                 <td style={{ padding: '8px', color: r.days_since === 0 ? '#4ade80' : r.days_since !== null && r.days_since <= 2 ? '#facc15' : '#71717a' }}>
-                  {r.days_since === null ? '—' : r.days_since === 0 ? 'today' : `${r.days_since}d`}
+                  {r.days_since === null ? '—' : r.days_since === 0 ? 'today' : `${r.days_since} day${r.days_since === 1 ? '' : 's'} ago`}
                 </td>
                 <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.days_active}</td>
                 <td style={{ padding: '8px', color: '#e4e4e7' }}>{row.checkins}</td>

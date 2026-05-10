@@ -14,6 +14,11 @@ import { subscribeToPush, savePushSubscription } from '@/lib/push'
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
 
+// Subtle haptic tap — degrades gracefully if unsupported (iOS Safari, desktop)
+function hapticTap() {
+  try { navigator.vibrate?.(10) } catch { /* ignore */ }
+}
+
 // Fire-and-forget analytics — never throws, never blocks UX
 async function trackAnalyticsEvent(eventType: string) {
   try {
@@ -485,6 +490,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
         }
 
         const finalMessages = [...updatedMessages, aiMessage]
+        hapticTap()
         setMessages(finalMessages)
 
         // Fire-and-forget memory extraction — only every 8 messages to avoid redundant extraction
@@ -537,6 +543,7 @@ export default function ConversationClient({ userEmail, autoStart = false }: Con
   function handleSend() {
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
+    hapticTap()
     sendMessage(trimmed)
   }
 

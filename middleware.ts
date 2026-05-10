@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { updateSession } from '@/lib/supabase/middleware'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 const PROTECTED_ROUTES = ['/', '/conversation', '/onboarding']
 const AUTH_ROUTES = ['/auth/login', '/auth/signup']
@@ -9,11 +10,15 @@ export async function middleware(request: NextRequest) {
 
   const pathname = request.nextUrl.pathname
 
-  // Admin route protection — 404 for anyone who isn't the admin user
+  // Admin route protection — 404 for anyone without is_admin flag in user_profiles
   if (pathname.startsWith('/admin')) {
-    if (!user || user.id !== process.env.ADMIN_USER_ID) {
-      return new NextResponse(null, { status: 404 })
-    }
+    if (!user) return new NextResponse(null, { status: 404 })
+    const { data: profile } = await createAdminClient()
+      .from('user_profiles')
+      .select('is_admin')
+      .eq('id', user.id)
+      .single()
+    if (!profile?.is_admin) return new NextResponse(null, { status: 404 })
   }
 
   // Safety net: if a Supabase auth code lands on /auth/login (happens when the

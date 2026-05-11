@@ -110,15 +110,15 @@ export default function LoginPage() {
 
         {/* Privacy trust module */}
         <div className="mt-8 text-center">
-          <div className="flex items-center justify-center gap-1.5 mb-1">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+          <div className="flex items-center justify-center gap-1.5 mb-1.5">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-300 shrink-0">
               <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
               <path d="M7 11V7a5 5 0 0 1 10 0v4" />
             </svg>
-            <p className="text-sm text-zinc-400">Private &amp; secure</p>
+            <p className="text-sm font-medium text-zinc-300">Private &amp; secure</p>
           </div>
-          <p className="text-xs text-zinc-500 mb-2">Your conversations are only visible to you.</p>
-          <Link href="/privacy" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2">
+          <p className="text-xs text-zinc-500 mb-2.5">Your conversations are only visible to you.</p>
+          <Link href="/privacy" className="text-xs text-zinc-400 hover:text-white transition-colors underline underline-offset-2 decoration-zinc-600 hover:decoration-zinc-400">
             How privacy works →
           </Link>
         </div>

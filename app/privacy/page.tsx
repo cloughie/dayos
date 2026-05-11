@@ -29,7 +29,7 @@ export default function PrivacyPage() {
           <h1 className="text-2xl font-semibold text-white">Your privacy matters</h1>
         </div>
         <p className="text-zinc-400 text-sm leading-relaxed mb-10">
-          DayOS is designed for personal reflection. Your thoughts and check-ins are private.
+          DayOS is designed for personal reflection. Your conversations and check-ins are private.
         </p>
 
         <div className="mb-2">
@@ -39,7 +39,7 @@ export default function PrivacyPage() {
               'Your conversations are only visible to you',
               'Saved memories are encrypted and securely stored',
               'We never sell your personal information',
-              'You control your saved memories and can delete them at any time',
+              'You can review and delete saved memories at any time',
             ].map((item) => (
               <div key={item} className="flex items-start gap-3 px-4 py-3.5">
                 <span className="text-zinc-500 mt-px shrink-0">

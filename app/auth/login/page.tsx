@@ -117,7 +117,7 @@ export default function LoginPage() {
             </svg>
             <p className="text-sm font-medium text-zinc-300">Private &amp; secure</p>
           </div>
-          <p className="text-xs text-zinc-500 mb-2.5">Your conversations are only visible to you.</p>
+          <p className="text-xs text-zinc-500 mb-2.5">Your conversations are private and not stored by DayOS.</p>
           <Link href="/privacy" className="text-xs text-zinc-400 hover:text-white transition-colors underline underline-offset-2 decoration-zinc-600 hover:decoration-zinc-400">
             How privacy works →
           </Link>

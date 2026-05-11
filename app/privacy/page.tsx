@@ -28,16 +28,19 @@ export default function PrivacyPage() {
           </svg>
           <h1 className="text-2xl font-semibold text-white">Your privacy matters</h1>
         </div>
+        <p className="text-zinc-400 text-sm leading-relaxed mb-4">
+          DayOS is designed for personal reflection.
+        </p>
         <p className="text-zinc-400 text-sm leading-relaxed mb-10">
-          DayOS is designed for personal reflection. Your conversations and check-ins are private.
+          Your conversations are processed privately and are not stored by DayOS. Saved memories are encrypted in our database.
         </p>
 
         <div className="mb-2">
           <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">What&apos;s private</h2>
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             {[
-              'Your conversations are only visible to you',
-              'Saved memories are encrypted and securely stored',
+              'Conversations are not stored by DayOS',
+              'Saved memories are encrypted in our database',
               'We never sell your personal information',
               'You can review and delete saved memories at any time',
             ].map((item) => (

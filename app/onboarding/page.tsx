@@ -150,11 +150,11 @@ function OnboardingFlow() {
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
-                <p className="text-sm font-semibold text-zinc-200">Private by design</p>
+                <p className="text-sm font-semibold text-zinc-200">Built for personal reflection</p>
               </div>
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Your conversations are private and only visible to you.
-                Saved memories are securely stored.
+                Your conversations are private and not stored by DayOS.<br />
+                Saved memories are encrypted in our database.
               </p>
             </div>
 

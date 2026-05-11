@@ -31,8 +31,11 @@ export default function PrivacyPage() {
         <p className="text-zinc-400 text-sm leading-relaxed mb-4">
           DayOS is designed for personal reflection.
         </p>
+        <p className="text-zinc-400 text-sm leading-relaxed mb-3">
+          Your conversations are processed privately and are not stored by DayOS.
+        </p>
         <p className="text-zinc-400 text-sm leading-relaxed mb-10">
-          Your conversations are processed privately and are not stored by DayOS. Saved memories are encrypted and securely stored in our database.
+          Saved memories are encrypted and securely stored in our database.
         </p>
 
         <div className="mb-2">

@@ -144,17 +144,17 @@ function OnboardingFlow() {
               <p>The more honest and open you are, the more useful it becomes.</p>
             </div>
 
-            <div className="mb-8 rounded-xl bg-zinc-900 px-4 py-4">
-              <div className="flex items-center gap-2 mb-1">
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+            <div className="mb-8 rounded-xl bg-zinc-900/60 px-3.5 py-3">
+              <div className="flex items-center gap-1.5 mb-1">
+                <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500 shrink-0">
                   <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
                   <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                 </svg>
-                <p className="text-sm font-semibold text-zinc-200">Built for personal reflection</p>
+                <p className="text-xs font-semibold text-zinc-300">Built for personal reflection</p>
               </div>
-              <p className="text-sm text-zinc-400 leading-relaxed">
-                Your conversations are private and not stored by DayOS.<br />
-                Saved memories are encrypted in our database.
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Your conversations stay private and aren&apos;t stored by DayOS.<br />
+                Saved memories are encrypted and securely stored.
               </p>
             </div>
 

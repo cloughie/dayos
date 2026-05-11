@@ -32,7 +32,7 @@ export default function PrivacyPage() {
           DayOS is designed for personal reflection.
         </p>
         <p className="text-zinc-400 text-sm leading-relaxed mb-10">
-          Your conversations are processed privately and are not stored by DayOS. Saved memories are encrypted in our database.
+          Your conversations are processed privately and are not stored by DayOS. Saved memories are encrypted and securely stored in our database.
         </p>
 
         <div className="mb-2">
@@ -40,7 +40,7 @@ export default function PrivacyPage() {
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             {[
               'Conversations are not stored by DayOS',
-              'Saved memories are encrypted in our database',
+              'Saved memories are encrypted and securely stored in our database',
               'We never sell your personal information',
               'You can review and delete saved memories at any time',
             ].map((item) => (

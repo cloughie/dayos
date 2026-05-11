@@ -104,6 +104,15 @@ export default function SignupPage() {
             Sign in
           </Link>
         </p>
+
+        {/* Privacy trust module */}
+        <div className="mt-8 text-center">
+          <p className="text-sm text-zinc-400 mb-1">🔒 Private &amp; secure</p>
+          <p className="text-xs text-zinc-500 mb-2">Your conversations are only visible to you.</p>
+          <Link href="/privacy" className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors underline underline-offset-2">
+            How privacy works →
+          </Link>
+        </div>
       </div>
     </div>
   )

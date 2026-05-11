@@ -111,8 +111,12 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
           onClick={() => { onClose(); router.push('/privacy') }}
           className="w-full bg-zinc-800/50 rounded-xl px-4 py-3.5 mb-2 flex items-center justify-between gap-4 hover:bg-zinc-700/50 active:bg-zinc-600/50 transition-colors text-left"
         >
-          <div>
-            <p className="text-sm text-zinc-200 font-medium">🔒 Privacy &amp; Security</p>
+          <div className="flex items-center gap-2">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+            <p className="text-sm text-zinc-200 font-medium">Privacy &amp; Security</p>
           </div>
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-500 shrink-0">
             <polyline points="9 18 15 12 9 6" />

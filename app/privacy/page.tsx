@@ -21,7 +21,13 @@ export default function PrivacyPage() {
       </button>
 
       <div className="w-full max-w-sm mx-auto">
-        <h1 className="text-2xl font-semibold text-white mb-3">Your privacy matters</h1>
+        <div className="flex items-center gap-2.5 mb-3">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2" />
+            <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+          </svg>
+          <h1 className="text-2xl font-semibold text-white">Your privacy matters</h1>
+        </div>
         <p className="text-zinc-400 text-sm leading-relaxed mb-10">
           DayOS is designed for personal reflection. Your thoughts and check-ins are private.
         </p>
@@ -31,8 +37,8 @@ export default function PrivacyPage() {
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             {[
               'Your conversations are only visible to you',
-              'Saved memories are securely stored',
-              'Your data is protected',
+              'Saved memories are encrypted and securely stored',
+              'We never sell your personal information',
               'You control your saved memories and can delete them at any time',
             ].map((item) => (
               <div key={item} className="flex items-start gap-3 px-4 py-3.5">

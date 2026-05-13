@@ -18,8 +18,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'default'>('default')
   const [userId, setUserId] = useState<string | null>(null)
   const [modelPref, setModelPref] = useState<'claude' | 'openai'>('claude')
-
-  const isAdmin = userEmail === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+  const [isAdmin, setIsAdmin] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -35,13 +34,14 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
       setUserId(user.id)
       supabase
         .from('user_profiles')
-        .select('push_notifications_enabled, push_notifications_permission_status')
+        .select('push_notifications_enabled, push_notifications_permission_status, is_admin')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
           if (!data) return
           setNotificationsEnabled(data.push_notifications_enabled ?? false)
           setPermStatus((data.push_notifications_permission_status ?? 'default') as 'granted' | 'denied' | 'default')
+          setIsAdmin(data.is_admin ?? false)
         })
     })
   }, [isOpen])

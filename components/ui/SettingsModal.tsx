@@ -34,14 +34,14 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
       setUserId(user.id)
       supabase
         .from('user_profiles')
-        .select('push_notifications_enabled, push_notifications_permission_status, is_admin')
+        .select('push_notifications_enabled, push_notifications_permission_status, dev_tools_enabled')
         .eq('id', user.id)
         .single()
         .then(({ data }) => {
           if (!data) return
           setNotificationsEnabled(data.push_notifications_enabled ?? false)
           setPermStatus((data.push_notifications_permission_status ?? 'default') as 'granted' | 'denied' | 'default')
-          setIsAdmin(data.is_admin ?? false)
+          setIsAdmin(data.dev_tools_enabled ?? false)
         })
     })
   }, [isOpen])

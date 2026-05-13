@@ -17,6 +17,15 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'default'>('default')
   const [userId, setUserId] = useState<string | null>(null)
+  const [modelPref, setModelPref] = useState<'claude' | 'openai'>('claude')
+
+  const isAdmin = userEmail === process.env.NEXT_PUBLIC_ADMIN_EMAIL
+
+  useEffect(() => {
+    if (!isOpen) return
+    const stored = localStorage.getItem('dayos_model_pref')
+    setModelPref(stored === 'openai' ? 'openai' : 'claude')
+  }, [isOpen])
 
   useEffect(() => {
     if (!isOpen) return
@@ -127,6 +136,35 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
             </button>
           </div>
         </div>
+
+        {/* Developer — admin only */}
+        {isAdmin && (
+          <div className="mb-5">
+            <p className="text-xs font-medium text-zinc-600 uppercase tracking-wider mb-2 px-1">Developer</p>
+            <div className="bg-zinc-800/50 rounded-xl px-4 py-3.5">
+              <p className="text-sm text-zinc-200 font-medium mb-3">Model</p>
+              <div className="flex gap-2">
+                {(['claude', 'openai'] as const).map(m => (
+                  <button
+                    key={m}
+                    type="button"
+                    onClick={() => {
+                      setModelPref(m)
+                      localStorage.setItem('dayos_model_pref', m)
+                    }}
+                    className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors ${
+                      modelPref === m
+                        ? 'bg-white text-zinc-900'
+                        : 'bg-zinc-700 text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {m === 'claude' ? 'Claude' : 'OpenAI'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Privacy & Data */}
         <div className="mb-5">

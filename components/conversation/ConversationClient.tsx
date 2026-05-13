@@ -471,7 +471,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ messages: updatedMessages }),
+          body: JSON.stringify({
+            messages: updatedMessages,
+            provider: localStorage.getItem('dayos_model_pref') ?? 'claude',
+          }),
         })
 
         if (!response.ok) {

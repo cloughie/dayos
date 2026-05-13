@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
+import OpenAI from 'openai'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/encryption'
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
       )
     }
 
-    const { messages }: { messages: Message[] } = await request.json()
+    const { messages, provider }: { messages: Message[]; provider?: string } = await request.json()
 
     let memoryContext = ''
     let preferredName = ''
@@ -71,6 +72,23 @@ export async function POST(request: Request) {
       console.log('[Chat] Messages sent to Claude:')
       if (systemPrompt) console.log('[Chat] system:', systemPrompt)
       history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
+    }
+
+    if (provider === 'openai') {
+      if (!process.env.OPENAI_API_KEY) {
+        return NextResponse.json({ error: 'OpenAI API key not configured.' }, { status: 500 })
+      }
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        max_tokens: 1000,
+        messages: [
+          ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
+          ...history,
+        ],
+      })
+      const message = response.choices[0]?.message?.content ?? ''
+      return NextResponse.json({ message })
     }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })

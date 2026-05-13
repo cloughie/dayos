@@ -74,6 +74,8 @@ export async function POST(request: Request) {
       history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
     }
 
+    console.log(`[Chat] Provider: ${provider ?? 'claude'}`)
+
     if (provider === 'openai') {
       if (!process.env.OPENAI_API_KEY) {
         return NextResponse.json({ error: 'OpenAI API key not configured.' }, { status: 500 })

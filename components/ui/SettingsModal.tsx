@@ -141,7 +141,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         {isAdmin && (
           <div className="mb-5">
             <p className="text-xs font-medium text-zinc-600 uppercase tracking-wider mb-2 px-1">Developer</p>
-            <div className="bg-zinc-800/50 rounded-xl px-4 py-3.5">
+            <div className="bg-zinc-800/50 rounded-xl px-4 py-3.5 mb-2">
               <p className="text-sm text-zinc-200 font-medium mb-3">Model</p>
               <div className="flex gap-2">
                 {(['claude', 'openai'] as const).map(m => (
@@ -163,6 +163,17 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
                 ))}
               </div>
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.removeItem('dayos_conversation')
+                localStorage.removeItem('dayos_plan')
+                window.location.reload()
+              }}
+              className="w-full bg-zinc-800/50 text-amber-400 rounded-xl px-4 py-3.5 text-sm font-medium text-left hover:bg-zinc-700/50 active:bg-zinc-600/50 transition-colors"
+            >
+              Force fresh check-in
+            </button>
           </div>
         )}
 

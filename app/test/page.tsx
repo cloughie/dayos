@@ -48,7 +48,7 @@ export default function TestLandingPage() {
           {/* CTA */}
           <div className="flex flex-col gap-3 pt-1">
             <Link
-              href="/auth/login"
+              href="/auth/signup"
               className="inline-flex items-center justify-center bg-white text-zinc-950 rounded-xl px-6 py-3.5 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors w-full sm:w-auto sm:self-start"
             >
               Start Your Check-In

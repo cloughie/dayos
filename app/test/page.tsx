@@ -27,10 +27,12 @@ export default function TestLandingPage() {
           </p>
 
           {/* Body copy */}
-          <p className="text-sm text-zinc-500 leading-relaxed max-w-md">
-            DayOS helps you slow down, clear mental noise, understand what actually matters,
-            and turn that into focused action. Through a simple guided daily check-in, it helps
-            you build clarity, self-awareness, and better execution — one day at a time.
+          <p className="text-sm text-zinc-400 leading-relaxed max-w-md">
+            DayOS helps you slow down, think clearly, understand what actually matters, and turn
+            that into focused action.
+            <br /><br />
+            Through a simple guided daily check-in, it helps you build clarity, self-awareness,
+            and better execution.
           </p>
 
           {/* Value flow */}

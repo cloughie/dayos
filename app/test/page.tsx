@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function TestLandingPage() {
   return (
@@ -58,61 +59,16 @@ export default function TestLandingPage() {
           </div>
         </div>
 
-        {/* Right: Screenshot / product visual */}
-        <div className="relative w-full aspect-[9/16] max-h-[520px] lg:max-h-none rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden flex flex-col">
-
-          {/* Simulated app chrome */}
-          <div className="px-5 pt-5 pb-3 border-b border-zinc-800/60">
-            <p className="text-[10px] font-semibold tracking-widest text-zinc-600 uppercase">DayOS</p>
-          </div>
-
-          <div className="flex-1 flex flex-col justify-center px-5 py-6 gap-5">
-            {/* Simulated check-in prompt */}
-            <div className="flex flex-col gap-1.5">
-              <p className="text-[10px] text-zinc-600 uppercase tracking-widest font-semibold">Morning check-in</p>
-              <p className="text-sm text-zinc-200 leading-snug font-medium">
-                What&apos;s taking up the most space in your head right now?
-              </p>
-            </div>
-
-            {/* Simulated response bubble */}
-            <div className="bg-zinc-800/60 rounded-xl px-4 py-3 self-end max-w-[80%]">
-              <p className="text-xs text-zinc-300 leading-relaxed">
-                Honestly, the project deadline. I keep avoiding it but it&apos;s sitting heavy.
-              </p>
-            </div>
-
-            {/* Simulated AI follow-up */}
-            <div className="flex flex-col gap-1.5">
-              <p className="text-sm text-zinc-200 leading-snug font-medium">
-                That avoidance often points to something underneath — fear, unclear next step, or overwhelm.
-                Which feels closest?
-              </p>
-            </div>
-
-            {/* Simulated response bubble */}
-            <div className="bg-zinc-800/60 rounded-xl px-4 py-3 self-end max-w-[80%]">
-              <p className="text-xs text-zinc-300 leading-relaxed">
-                Unclear next step for sure.
-              </p>
-            </div>
-
-            {/* Simulated insight */}
-            <div className="mt-auto bg-zinc-950/60 border border-zinc-800 rounded-xl px-4 py-3">
-              <p className="text-[10px] text-zinc-500 uppercase tracking-widest font-semibold mb-1">Today&apos;s focus</p>
-              <p className="text-xs text-zinc-300 leading-relaxed">
-                Define the single clearest next step on the project before noon.
-              </p>
-            </div>
-          </div>
-
-          {/* Bottom input bar */}
-          <div className="px-4 pb-4 pt-2 border-t border-zinc-800/60">
-            <div className="bg-zinc-800/50 rounded-xl px-4 py-2.5 flex items-center gap-2">
-              <div className="flex-1 h-3 bg-zinc-700/50 rounded-full" />
-              <div className="w-5 h-5 rounded-full bg-zinc-700/50 shrink-0" />
-            </div>
-          </div>
+        {/* Right: Real product screenshot */}
+        <div className="flex items-center justify-center lg:justify-end">
+          <Image
+            src="/images/dayosscreenshot.png"
+            alt="DayOS morning check-in"
+            width={340}
+            height={680}
+            priority
+            className="w-full max-w-[260px] sm:max-w-[300px] lg:max-w-[340px] h-auto drop-shadow-[0_32px_64px_rgba(0,0,0,0.6)]"
+          />
         </div>
 
       </div>

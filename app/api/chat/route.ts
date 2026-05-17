@@ -41,14 +41,18 @@ export async function POST(request: Request) {
       )
     }
 
-    const { messages, provider }: { messages: Message[]; provider?: string } = await request.json()
+    const { messages, provider, source }: { messages: Message[]; provider?: string; source?: string } = await request.json()
 
     let memoryContext = ''
     let preferredName = ''
+    let debugUserId: string | null = null
+    let debugUserEmail: string | null = null
     try {
       const supabase = await createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (user) {
+        debugUserId = user.id
+        debugUserEmail = user.email ?? null
         const [memory, profile] = await Promise.all([
           loadMemoryContext(user.id),
           supabase.from('user_profiles').select('preferred_name').eq('id', user.id).single(),
@@ -74,6 +78,20 @@ export async function POST(request: Request) {
       history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
     }
 
+    const isDebugUser = process.env.CHAT_DEBUG_USER_ID && debugUserId === process.env.CHAT_DEBUG_USER_ID
+    if (isDebugUser) {
+      console.log('[DEBUG_CHAT] ---- REQUEST ----')
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        user_id: debugUserId,
+        user_email: debugUserEmail,
+        source: source ?? 'unknown',
+        provider: provider ?? 'claude',
+        system_prompt: systemPrompt || null,
+        messages: history,
+      }, null, 2))
+    }
+
     console.log(`[Chat] Provider: ${provider ?? 'claude'}`)
 
     if (provider === 'openai') {
@@ -90,6 +108,14 @@ export async function POST(request: Request) {
         ],
       })
       const message = response.choices[0]?.message?.content ?? ''
+      if (isDebugUser) {
+        console.log('[DEBUG_CHAT] ---- RESPONSE ----')
+        console.log(JSON.stringify({
+          timestamp: new Date().toISOString(),
+          raw_response: message,
+          filtered_response: message.split('\n').filter((l: string) => !/^User:/i.test(l.trimStart())).join('\n').trim(),
+        }, null, 2))
+      }
       return NextResponse.json({ message })
     }
 
@@ -102,6 +128,14 @@ export async function POST(request: Request) {
     })
 
     const message = response.content[0]?.type === 'text' ? response.content[0].text : ''
+    if (isDebugUser) {
+      console.log('[DEBUG_CHAT] ---- RESPONSE ----')
+      console.log(JSON.stringify({
+        timestamp: new Date().toISOString(),
+        raw_response: message,
+        filtered_response: message.split('\n').filter((l: string) => !/^User:/i.test(l.trimStart())).join('\n').trim(),
+      }, null, 2))
+    }
     return NextResponse.json({ message })
   } catch (error) {
     console.error('Chat API error:', error)

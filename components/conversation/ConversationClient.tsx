@@ -486,6 +486,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           body: JSON.stringify({
             messages: updatedMessages,
             provider: localStorage.getItem('dayos_model_pref') ?? 'claude',
+            source: 'sendMessage',
           }),
         })
 
@@ -577,6 +578,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         body: JSON.stringify({
           messages: initialHistory,
           provider: localStorage.getItem('dayos_model_pref') ?? 'claude',
+          source: 'startCheckIn',
         }),
       })
 

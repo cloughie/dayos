@@ -113,6 +113,18 @@ function extractPlan(content: string): string {
   return lines.slice(startIdx, endIdx + 1).join('\n').trim()
 }
 
+// ─── Safety strip ──────────────────────────────────────────────────────────
+// Remove any line the model generates that begins with "User:" — these are
+// hallucinated transcript continuations and should never appear in output.
+
+function stripUserLines(text: string): string {
+  return text
+    .split('\n')
+    .filter(line => !/^User:/i.test(line.trimStart()))
+    .join('\n')
+    .trim()
+}
+
 // ─── Message bubble ────────────────────────────────────────────────────────
 
 const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
@@ -485,7 +497,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         const aiMessage: Message = {
           id: crypto.randomUUID(),
           role: 'assistant',
-          content: data.message,
+          content: stripUserLines(data.message),
           created_at: new Date().toISOString(),
         }
 
@@ -529,15 +541,72 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
   // ─── Handle send ──────────────────────────────────────────────────────────
 
-  function startCheckIn() {
+  // startCheckIn must never read from the `messages` closure — doing so risks
+  // stale React state carrying yesterday's conversation into a new check-in.
+  // Instead it builds the API payload from a known empty array and owns the
+  // full request/response cycle independently of sendMessage.
+  async function startCheckIn() {
+    if (isLoading) return
+
     const now = new Date()
     const time = `${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`
     const day = now.toLocaleDateString('en-US', { weekday: 'long' })
     const monthDate = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
-    const message = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${day}, ${monthDate}\n\nSo, let's check-in.`
+    const content = `${CHECKIN_PROMPT}\n\nIt's ${time}, ${day}, ${monthDate}\n\nSo, let's check-in.`
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+      hidden: true,
+    }
+
+    // Build from a local constant — never touches messages state
+    const initialHistory: Message[] = [userMessage]
+
+    setMessages(initialHistory)
+    setIsLoading(true)
     setStarted(true)
     trackAnalyticsEvent('daily_checkin_started')
-    sendMessage(message, true)
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: initialHistory,
+          provider: localStorage.getItem('dayos_model_pref') ?? 'claude',
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to get response')
+
+      const data = await response.json()
+      const aiMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: stripUserLines(data.message),
+        created_at: new Date().toISOString(),
+      }
+
+      hapticTap()
+      setMessages([userMessage, aiMessage])
+    } catch (err) {
+      console.error('Chat error:', err)
+      setMessages([
+        userMessage,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Sorry, something went wrong. Please try again.',
+          created_at: new Date().toISOString(),
+        },
+      ])
+    } finally {
+      flushSync(() => setIsLoading(false))
+      requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+    }
 
     // Persist usage signal so we never show the first-time screen again on
     // any device. Fire-and-forget — failure is silent and non-blocking.

@@ -4,7 +4,7 @@ import Image from 'next/image'
 export default function TestLandingPage() {
   return (
     <div className="min-h-screen min-h-[100dvh] bg-zinc-950 flex flex-col items-center justify-center px-6 py-12">
-      <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-16 items-center">
+      <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-8 lg:gap-16 items-center">
 
         {/* Left: Text content */}
         <div className="flex flex-col gap-6 lg:gap-7">
@@ -51,7 +51,7 @@ export default function TestLandingPage() {
               href="/auth/login"
               className="inline-flex items-center justify-center bg-white text-zinc-950 rounded-xl px-6 py-3.5 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors w-full sm:w-auto sm:self-start"
             >
-              Start Your First Check-In
+              Start Your Check-In
             </Link>
             <p className="text-xs text-zinc-600 sm:pl-0.5">
               Free to use. Best used in the morning. Works great saved to your home screen.

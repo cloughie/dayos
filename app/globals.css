@@ -109,6 +109,12 @@ html[data-theme="light"] .border-zinc-800 { border-color: #b8b7b1; }
 html[data-theme="light"] .border-zinc-700 { border-color: #a0a09a; }
 html[data-theme="light"] .border-zinc-600 { border-color: #909094; }
 
+/* Save/update plan button — bg-zinc-600 + hover */
+html[data-theme="light"] .bg-zinc-600              { background-color: #aeada8; }
+html[data-theme="light"] .bg-zinc-500              { background-color: #9e9d98; }
+/* Charcoal text/icon on this button only (higher specificity than .text-white alone) */
+html[data-theme="light"] .bg-zinc-600.text-white   { color: #3e3e42; }
+
 /* Hover borders */
 html[data-theme="light"] .hover\:border-zinc-500:hover { border-color: #808084; }
 

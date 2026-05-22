@@ -7,6 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
 import PlanPanel, { type SavedPlan } from '@/components/ui/PlanPanel'
+import ThemeToggle from '@/components/ThemeToggle'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
@@ -718,6 +719,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           >
             View Plan
           </button>
+          <ThemeToggle />
           <button
             onClick={() => setSettingsOpen(true)}
           className="w-8 h-8 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-zinc-800 transition-colors"
@@ -911,10 +913,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
               type="button"
               onClick={handleSend}
               disabled={isLoading || showNewDayBanner || !input.trim()}
-              className="w-8 h-8 flex items-center justify-center bg-white rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
+              className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
               aria-label="Send message"
             >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#09090b" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <line x1="12" y1="19" x2="12" y2="5" />
                 <polyline points="5 12 12 5 19 12" />
               </svg>

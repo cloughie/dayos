@@ -38,8 +38,10 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable} style={{ backgroundColor: '#09090b', colorScheme: 'dark' }}>
+    <html lang="en" className={inter.variable}>
       <head>
+        {/* Theme: read localStorage before first paint to avoid flash */}
+        <script dangerouslySetInnerHTML={{ __html: `(function(){var t=localStorage.getItem('dayos_theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.documentElement.style.colorScheme='light';}else{document.documentElement.style.colorScheme='dark';}})();` }} />
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
@@ -52,7 +54,7 @@ export default function RootLayout({
         <link rel="apple-touch-startup-image" media="screen and (device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/iphone-xr.png" />
         <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/iphone-8.png" />
       </head>
-      <body className="bg-zinc-950 text-white antialiased" style={{ backgroundColor: '#09090b' }}>
+      <body className="bg-zinc-950 text-white antialiased">
         <ServiceWorkerInit />
         {children}
       </body>

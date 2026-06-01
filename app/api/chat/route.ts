@@ -34,13 +34,6 @@ async function loadMemoryContext(userId: string): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    if (!process.env.ANTHROPIC_API_KEY) {
-      return NextResponse.json(
-        { error: 'Anthropic API key not configured.' },
-        { status: 500 }
-      )
-    }
-
     const { messages, provider, source }: { messages: Message[]; provider?: string; source?: string } = await request.json()
 
     let memoryContext = ''
@@ -100,7 +93,7 @@ export async function POST(request: Request) {
       }
       const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
       const response = await openai.chat.completions.create({
-        model: 'gpt-5.5',
+        model: 'gpt-4o',
         max_tokens: 1000,
         messages: [
           ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
@@ -117,6 +110,10 @@ export async function POST(request: Request) {
         }, null, 2))
       }
       return NextResponse.json({ message })
+    }
+
+    if (!process.env.ANTHROPIC_API_KEY) {
+      return NextResponse.json({ error: 'Anthropic API key not configured.' }, { status: 500 })
     }
 
     const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
@@ -138,7 +135,8 @@ export async function POST(request: Request) {
     }
     return NextResponse.json({ message })
   } catch (error) {
-    console.error('Chat API error:', error)
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    const message = error instanceof Error ? error.message : String(error)
+    console.error('Chat API error:', message, error)
+    return NextResponse.json({ error: 'Internal server error', detail: message }, { status: 500 })
   }
 }

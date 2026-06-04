@@ -6,6 +6,7 @@ export type AnalyticsEventType =
   | 'plan_saved'
   | 'plan_updated'
   | 'returned_same_day'
+  | 'push_broadcast_opened'
 
 // Server-side fire-and-forget event tracking. Never throws.
 export async function trackEvent(

@@ -8,6 +8,7 @@ const VALID_EVENTS: AnalyticsEventType[] = [
   'plan_saved',
   'plan_updated',
   'returned_same_day',
+  'push_broadcast_opened',
 ]
 
 export async function POST(request: Request) {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { event_type } = await request.json()
+    const { event_type, metadata } = await request.json()
     if (!VALID_EVENTS.includes(event_type)) {
       return NextResponse.json({ error: 'Invalid event_type' }, { status: 400 })
     }
@@ -43,7 +44,7 @@ export async function POST(request: Request) {
       if (alreadyFired) return NextResponse.json({ ok: true, skipped: true })
     }
 
-    await trackEvent(user.id, event_type)
+    await trackEvent(user.id, event_type, metadata ?? {})
     return NextResponse.json({ ok: true })
   } catch (err) {
     console.error('[Analytics] Route error:', err)

@@ -8,8 +8,6 @@ const BODY_MAX = 140
 
 export async function POST(request: Request) {
   // ── Auth ──────────────────────────────────────────────────────────────────
-  // createClient() reads the Supabase session cookie — cannot be spoofed from
-  // the client. We then re-verify is_admin from the DB, same as the middleware.
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
 
@@ -39,8 +37,6 @@ export async function POST(request: Request) {
   if (title.length > TITLE_MAX) return NextResponse.json({ error: `Title must be ${TITLE_MAX} characters or fewer` }, { status: 400 })
   if (msgBody.length > BODY_MAX) return NextResponse.json({ error: `Body must be ${BODY_MAX} characters or fewer` }, { status: 400 })
   if (!url.startsWith('/')) return NextResponse.json({ error: 'URL must be a relative path starting with /' }, { status: 400 })
-
-  const message = { title, body: msgBody, url }
 
   // ── VAPID ─────────────────────────────────────────────────────────────────
   webpush.setVapidDetails(
@@ -73,6 +69,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ dryRun: true, total, sent: 0, failed: 0, expired: 0 })
   }
 
+  // ── Log broadcast row (before send, so we have the ID for the URL) ────────
+  const { data: broadcastRecord } = await admin
+    .from('push_broadcasts')
+    .insert({
+      title,
+      body: msgBody,
+      destination_path: url,
+      total_recipients: total,
+      sent_by_user_id: user.id,
+    })
+    .select('id')
+    .single()
+
+  const broadcastId = broadcastRecord?.id as string | undefined
+
+  // Embed broadcast_id in the destination URL so opens can be attributed.
+  const notifUrl = broadcastId
+    ? `${url}${url.includes('?') ? '&' : '?'}source=push_broadcast&broadcast_id=${broadcastId}`
+    : url
+
+  const message = { title, body: msgBody, url: notifUrl }
+
   // ── Send ──────────────────────────────────────────────────────────────────
   let sent = 0
   let failed = 0
@@ -88,7 +106,6 @@ export async function POST(request: Request) {
     } catch (err: unknown) {
       const status = (err as { statusCode?: number })?.statusCode
       if (status === 404 || status === 410) {
-        // Expired/unregistered — clean up same as daily cron
         expired++
         await admin.from('push_subscriptions').delete().eq('user_id', sub.user_id)
         await admin.from('user_profiles')
@@ -98,6 +115,14 @@ export async function POST(request: Request) {
         console.error('[AdminBroadcast] Send error for user:', sub.user_id, err)
       }
     }
+  }
+
+  // Update the broadcast row with final counts.
+  if (broadcastId) {
+    await admin
+      .from('push_broadcasts')
+      .update({ sent_count: sent, failed_count: failed, expired_count: expired })
+      .eq('id', broadcastId)
   }
 
   console.log(`[AdminBroadcast] total=${total} sent=${sent} failed=${failed} expired=${expired}`)

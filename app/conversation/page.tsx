@@ -48,6 +48,7 @@ export default async function ConversationPage({
     !!profile?.has_started_checkin || (planCount ?? 0) > 0
 
   const autoStart = params.autostart === '1'
+  const broadcastId = typeof params.broadcast_id === 'string' ? params.broadcast_id : undefined
 
-  return <ConversationClient userEmail={user.email ?? ''} autoStart={autoStart} hasExistingData={hasExistingData} />
+  return <ConversationClient userEmail={user.email ?? ''} autoStart={autoStart} hasExistingData={hasExistingData} broadcastId={broadcastId} />
 }

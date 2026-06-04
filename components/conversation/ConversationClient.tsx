@@ -23,12 +23,12 @@ function hapticTap() {
 }
 
 // Fire-and-forget analytics — never throws, never blocks UX
-async function trackAnalyticsEvent(eventType: string) {
+async function trackAnalyticsEvent(eventType: string, metadata?: Record<string, unknown>) {
   try {
     await fetch('/api/analytics', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_type: eventType }),
+      body: JSON.stringify({ event_type: eventType, ...(metadata && { metadata }) }),
     })
   } catch { /* ignore */ }
 }
@@ -195,9 +195,10 @@ interface ConversationClientProps {
   userEmail: string
   autoStart?: boolean
   hasExistingData?: boolean
+  broadcastId?: string
 }
 
-export default function ConversationClient({ userEmail, autoStart = false, hasExistingData = false }: ConversationClientProps) {
+export default function ConversationClient({ userEmail, autoStart = false, hasExistingData = false, broadcastId }: ConversationClientProps) {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -272,11 +273,15 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     }
   }, [tz])
 
-  // Record app open once per calendar day — drives DAU/WAU on the dashboard
+  // Record app open once per calendar day — drives DAU/WAU on the dashboard.
+  // If the user arrived from a broadcast push, also record which broadcast they opened.
   useEffect(() => {
     trackAnalyticsEvent('app_opened')
+    if (broadcastId) {
+      trackAnalyticsEvent('push_broadcast_opened', { broadcast_id: broadcastId })
+    }
     fetchStreak()
-  }, [fetchStreak])
+  }, [fetchStreak, broadcastId])
 
   // Load from localStorage on mount, then hydrate plan from Supabase
   useEffect(() => {

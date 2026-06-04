@@ -27,10 +27,12 @@ const S: Record<string, React.CSSProperties> = {
   textarea: { width: '100%', background: '#18181b', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#e4e4e7', fontSize: '13px', fontFamily: 'monospace', boxSizing: 'border-box', resize: 'vertical', minHeight: '72px' },
   charcount:{ fontSize: '11px', textAlign: 'right', marginTop: '4px' },
   invalid:  { borderColor: '#ef4444' },
-  preview:  { background: '#1c1c1e', border: '1px solid #3a3a3c', borderRadius: '14px', padding: '14px 16px', marginBottom: '28px' },
-  pApp:     { fontSize: '11px', color: '#8e8e93', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '6px' },
-  pTitle:   { fontSize: '13px', fontWeight: 600, color: '#fff', marginBottom: '2px' },
-  pBody:    { fontSize: '13px', color: '#ebebf5cc', lineHeight: 1.4 },
+  previewWrap: { marginBottom: '28px' },
+  preview:  { display: 'inline-block', width: '100%', maxWidth: '360px', background: 'rgba(44,44,46,0.95)', backdropFilter: 'blur(20px)', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '16px', padding: '12px 14px', boxShadow: '0 4px 24px rgba(0,0,0,0.5)' },
+  pApp:     { fontSize: '11px', color: '#8e8e93', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '5px' },
+  pIcon:    { width: '14px', height: '14px', background: '#1a1a1a', borderRadius: '4px', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', fontSize: '9px' },
+  pTitle:   { fontSize: '13px', fontWeight: 600, color: '#fff', marginBottom: '2px', lineHeight: 1.3, wordBreak: 'break-word' as const },
+  pBody:    { fontSize: '13px', color: 'rgba(235,235,245,0.7)', lineHeight: 1.4, wordBreak: 'break-word' as const },
   dot:      { width: '8px', height: '8px', background: '#3b82f6', borderRadius: '50%', display: 'inline-block' },
   row:      { display: 'flex', gap: '12px', alignItems: 'center' },
   btn:      { padding: '9px 18px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontSize: '13px', fontWeight: 600, fontFamily: 'monospace' },
@@ -184,13 +186,16 @@ export default function PushBroadcastClient() {
       {(title || body) && (
         <div style={S.section}>
           <span style={S.label}>Preview</span>
-          <div style={S.preview}>
-            <div style={S.pApp}>
-              <span style={S.dot} />
-              DAYOS
+          <div style={S.previewWrap}>
+            <div style={S.preview}>
+              <div style={S.pApp}>
+                <span style={S.pIcon}>D</span>
+                <span>DAYOS</span>
+                <span style={{ marginLeft: 'auto', fontSize: '11px', color: '#636366' }}>now</span>
+              </div>
+              <div style={S.pTitle}>{title.trim() || <span style={{ color: '#52525b' }}>Title…</span>}</div>
+              <div style={S.pBody}>{body.trim() || <span style={{ color: '#3a3a3c' }}>Body…</span>}</div>
             </div>
-            <div style={S.pTitle}>{title.trim() || <span style={{ color: '#52525b' }}>Title…</span>}</div>
-            <div style={S.pBody}>{body.trim() || <span style={{ color: '#52525b' }}>Body…</span>}</div>
           </div>
         </div>
       )}

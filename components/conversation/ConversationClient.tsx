@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback, forwardRef, useMemo } from 'react'
+import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useMemo } from 'react'
 import { flushSync } from 'react-dom'
 import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
@@ -15,6 +15,7 @@ import { subscribeToPush, savePushSubscription } from '@/lib/push'
 
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
+const STREAK_CACHE_KEY = 'dayos_streak_cache'
 
 // Subtle haptic tap — degrades gracefully if unsupported (iOS Safari, desktop)
 function hapticTap() {
@@ -238,20 +239,36 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const [streak, setStreak] = useState<number | null>(null)
   const [checkedInDays, setCheckedInDays] = useState<string[]>([])
 
-  // Computed synchronously — no network needed, so the strip renders on first paint.
+  // Computed synchronously — pure date math, no network needed.
   const tz = typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'
   const localToday = new Date().toLocaleDateString('en-CA', { timeZone: tz })
   const weekDays = getLocalWeekDays(tz)
 
-  // Fetch only the data that requires the server: checked-in days and streak count.
+  // Hydrate from localStorage before first paint so dots are filled immediately
+  // for returning users. useLayoutEffect fires synchronously before the browser paints.
+  useLayoutEffect(() => {
+    try {
+      const cached = localStorage.getItem(STREAK_CACHE_KEY)
+      if (cached) {
+        const { streak: s, checkedInDays: d } = JSON.parse(cached)
+        setStreak(s ?? 0)
+        setCheckedInDays(d ?? [])
+      }
+    } catch { /* ignore malformed cache */ }
+  }, [])
+
+  // Fetch fresh data from the server; save result to cache for next load.
   const fetchStreak = useCallback(async () => {
     try {
       const r = await fetch(`/api/streak?tz=${encodeURIComponent(tz)}`)
       const data = await r.json()
-      setStreak(data.streak ?? 0)
-      setCheckedInDays(data.checkedInDays ?? [])
+      const s = data.streak ?? 0
+      const d = data.checkedInDays ?? []
+      setStreak(s)
+      setCheckedInDays(d)
+      localStorage.setItem(STREAK_CACHE_KEY, JSON.stringify({ streak: s, checkedInDays: d }))
     } catch {
-      setStreak(0)
+      setStreak(prev => prev ?? 0)
     }
   }, [tz])
 

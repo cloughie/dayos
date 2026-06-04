@@ -780,16 +780,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       {/* Body — relative so the new-day overlay can be positioned within it */}
       <div className="relative flex-1 flex flex-col min-h-0">
 
-      {/* Weekly check-in strip */}
-      {weekDays.length === 7 && (
-        <StreakBar
-          weekDays={weekDays}
-          today={localToday}
-          checkedInDays={checkedInDays}
-          streak={streak ?? 0}
-        />
-      )}
-
       {/* Messages */}
       <div
         ref={scrollContainerRef}
@@ -798,6 +788,16 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       >
         {(
         <>
+
+        {/* Weekly check-in strip — scrolls with content */}
+        {weekDays.length === 7 && (
+          <StreakBar
+            weekDays={weekDays}
+            today={localToday}
+            checkedInDays={checkedInDays}
+            streak={streak ?? 0}
+          />
+        )}
 
         {messages.length === 0 && !isLoading && !started && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">

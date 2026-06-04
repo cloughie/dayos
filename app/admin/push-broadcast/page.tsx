@@ -20,4 +20,5 @@ export default async function PushBroadcastPage() {
   }
 
   return <PushBroadcastClient />
+
 }

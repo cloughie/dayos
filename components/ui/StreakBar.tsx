@@ -51,9 +51,13 @@ export default function StreakBar({ weekDays, today, checkedInDays, streak }: St
 
           return (
             <div key={day} className="flex flex-col items-center gap-1.5">
+              {/* Small indicator dot above the label — only on today */}
+              <div className={`w-1 h-1 rounded-full ${isToday ? 'bg-zinc-400' : 'bg-transparent'}`} />
               <span
-                className={`text-[10px] font-medium tracking-wide leading-none ${
-                  isToday ? 'text-zinc-400' : 'text-zinc-600'
+                className={`text-[10px] tracking-wide leading-none ${
+                  isToday
+                    ? 'font-bold text-zinc-300'
+                    : 'font-medium text-zinc-600'
                 }`}
               >
                 {DAY_LABELS[i]}

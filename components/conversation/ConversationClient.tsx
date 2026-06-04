@@ -237,16 +237,15 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const [showPushPrompt, setShowPushPrompt] = useState(false)
   const [streak, setStreak] = useState<number | null>(null)
   const [checkedInDays, setCheckedInDays] = useState<string[]>([])
-  const [weekDays, setWeekDays] = useState<string[]>([])
-  const [localToday, setLocalToday] = useState('')
 
-  // Fetch streak data from the server, using the browser's local timezone.
+  // Computed synchronously — no network needed, so the strip renders on first paint.
+  const tz = typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'
+  const localToday = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+  const weekDays = getLocalWeekDays(tz)
+
+  // Fetch only the data that requires the server: checked-in days and streak count.
   const fetchStreak = useCallback(async () => {
     try {
-      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
-      const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
-      setLocalToday(today)
-      setWeekDays(getLocalWeekDays(tz))
       const r = await fetch(`/api/streak?tz=${encodeURIComponent(tz)}`)
       const data = await r.json()
       setStreak(data.streak ?? 0)
@@ -254,7 +253,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     } catch {
       setStreak(0)
     }
-  }, [])
+  }, [tz])
 
   // Record app open once per calendar day — drives DAU/WAU on the dashboard
   useEffect(() => {

@@ -30,9 +30,9 @@ export default function StreakBar({ weekDays, today, checkedInDays, streak }: St
   const checkedSet = new Set(checkedInDays)
 
   return (
-    <div className="flex items-center justify-center gap-6 px-4 py-2.5 border-b border-zinc-900">
+    <div className="flex items-center justify-center gap-6 px-4 py-4 border-b border-zinc-900">
       {/* Weekly dots */}
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-6">
         {weekDays.map((day, i) => {
           const isToday = day === today
           const isChecked = checkedSet.has(day)
@@ -62,7 +62,7 @@ export default function StreakBar({ weekDays, today, checkedInDays, streak }: St
               >
                 {DAY_LABELS[i]}
               </span>
-              <div className={`w-2 h-2 rounded-full ${dotClass}`} />
+              <div className={`w-2.5 h-2.5 rounded-full ${dotClass}`} />
             </div>
           )
         })}

@@ -7,6 +7,7 @@ import rehypeSanitize from 'rehype-sanitize'
 import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
 import PlanPanel, { type SavedPlan } from '@/components/ui/PlanPanel'
+import StreakBar, { getLocalWeekDays } from '@/components/ui/StreakBar'
 import ThemeToggle from '@/components/ThemeToggle'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
@@ -234,11 +235,32 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const initialScrollDoneRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
+  const [streak, setStreak] = useState<number | null>(null)
+  const [checkedInDays, setCheckedInDays] = useState<string[]>([])
+  const [weekDays, setWeekDays] = useState<string[]>([])
+  const [localToday, setLocalToday] = useState('')
+
+  // Fetch streak data from the server, using the browser's local timezone.
+  const fetchStreak = useCallback(async () => {
+    try {
+      const tz = Intl.DateTimeFormat().resolvedOptions().timeZone
+      const today = new Date().toLocaleDateString('en-CA', { timeZone: tz })
+      setLocalToday(today)
+      setWeekDays(getLocalWeekDays(tz))
+      const r = await fetch(`/api/streak?tz=${encodeURIComponent(tz)}`)
+      const data = await r.json()
+      setStreak(data.streak ?? 0)
+      setCheckedInDays(data.checkedInDays ?? [])
+    } catch {
+      setStreak(0)
+    }
+  }, [])
 
   // Record app open once per calendar day — drives DAU/WAU on the dashboard
   useEffect(() => {
     trackAnalyticsEvent('app_opened')
-  }, [])
+    fetchStreak()
+  }, [fetchStreak])
 
   // Load from localStorage on mount, then hydrate plan from Supabase
   useEffect(() => {
@@ -570,7 +592,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     setMessages(initialHistory)
     setIsLoading(true)
     setStarted(true)
-    trackAnalyticsEvent('daily_checkin_started')
+    trackAnalyticsEvent('daily_checkin_started').then(() => fetchStreak())
 
     try {
       const response = await fetch('/api/chat', {
@@ -713,6 +735,12 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       <header className="flex items-center justify-between px-4 py-4 border-b border-zinc-900 safe-top shrink-0">
         <h1 className="text-base font-semibold text-white tracking-tight">DayOS</h1>
         <div className="flex items-center gap-1">
+          {streak !== null && streak > 0 && (
+            <span className="flex items-center gap-1 text-xs font-medium text-zinc-400 px-2 py-1 select-none" title={`${streak}-day streak`}>
+              <span className="text-[11px]">⚡</span>
+              {streak}
+            </span>
+          )}
           <button
             onClick={() => !showNewDayBanner && setPlanOpen(true)}
             className={`text-sm font-medium text-zinc-300 hover:text-white transition-colors px-2 py-1${showNewDayBanner ? ' pointer-events-none' : ''}`}
@@ -736,6 +764,15 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
       {/* Body — relative so the new-day overlay can be positioned within it */}
       <div className="relative flex-1 flex flex-col min-h-0">
+
+      {/* Weekly check-in strip */}
+      {weekDays.length === 7 && (
+        <StreakBar
+          weekDays={weekDays}
+          today={localToday}
+          checkedInDays={checkedInDays}
+        />
+      )}
 
       {/* Messages */}
       <div

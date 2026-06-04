@@ -10,7 +10,8 @@ export default async function PushBroadcastPage() {
 
   if (!user) redirect('/auth/login')
 
-  if (!process.env.CHAT_DEBUG_USER_ID || user.id !== process.env.CHAT_DEBUG_USER_ID) {
+  const { data: profile } = await supabase.from('user_profiles').select('is_admin').eq('id', user.id).single()
+  if (!profile?.is_admin) {
     return (
       <div style={{ fontFamily: 'monospace', padding: '48px', color: '#e4e4e7', background: '#09090b', minHeight: '100vh' }}>
         <p style={{ color: '#f87171' }}>403 — Not authorised.</p>

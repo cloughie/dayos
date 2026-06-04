@@ -17,7 +17,8 @@ export async function POST(request: Request) {
   if (!user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
-  if (!process.env.CHAT_DEBUG_USER_ID || user.id !== process.env.CHAT_DEBUG_USER_ID) {
+  const { data: profile } = await supabase.from('user_profiles').select('is_admin').eq('id', user.id).single()
+  if (!profile?.is_admin) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 

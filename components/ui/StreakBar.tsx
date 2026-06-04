@@ -23,44 +23,54 @@ interface StreakBarProps {
   weekDays: string[]   // 7 YYYY-MM-DD strings, Mon–Sun
   today: string        // YYYY-MM-DD local today
   checkedInDays: string[]
+  streak: number
 }
 
-export default function StreakBar({ weekDays, today, checkedInDays }: StreakBarProps) {
+export default function StreakBar({ weekDays, today, checkedInDays, streak }: StreakBarProps) {
   const checkedSet = new Set(checkedInDays)
 
   return (
-    <div className="flex items-center justify-center gap-4 px-4 py-2 border-b border-zinc-900">
-      {weekDays.map((day, i) => {
-        const isToday = day === today
-        const isChecked = checkedSet.has(day)
-        const isFuture = day > today
+    <div className="flex items-center justify-center gap-6 px-4 py-2.5 border-b border-zinc-900">
+      {/* Weekly dots */}
+      <div className="flex items-center gap-5">
+        {weekDays.map((day, i) => {
+          const isToday = day === today
+          const isChecked = checkedSet.has(day)
+          const isFuture = day > today
 
-        let dotClass = ''
-        if (isChecked) {
-          dotClass = 'bg-zinc-300'
-        } else if (isFuture) {
-          dotClass = 'bg-zinc-800'
-        } else if (isToday) {
-          // Today not yet checked in — subtle ring to draw attention without alarm
-          dotClass = 'bg-zinc-900 ring-1 ring-zinc-600'
-        } else {
-          // Past day, missed
-          dotClass = 'bg-zinc-800'
-        }
+          let dotClass = ''
+          if (isChecked) {
+            dotClass = 'bg-zinc-300'
+          } else if (isFuture) {
+            dotClass = 'bg-zinc-800'
+          } else if (isToday) {
+            dotClass = 'bg-zinc-900 ring-1 ring-zinc-600'
+          } else {
+            dotClass = 'bg-zinc-800'
+          }
 
-        return (
-          <div key={day} className="flex flex-col items-center gap-1.5">
-            <span
-              className={`text-[9px] font-medium tracking-wide leading-none ${
-                isToday ? 'text-zinc-400' : 'text-zinc-700'
-              }`}
-            >
-              {DAY_LABELS[i]}
-            </span>
-            <div className={`w-1.5 h-1.5 rounded-full ${dotClass}`} />
-          </div>
-        )
-      })}
+          return (
+            <div key={day} className="flex flex-col items-center gap-1.5">
+              <span
+                className={`text-[10px] font-medium tracking-wide leading-none ${
+                  isToday ? 'text-zinc-400' : 'text-zinc-600'
+                }`}
+              >
+                {DAY_LABELS[i]}
+              </span>
+              <div className={`w-2 h-2 rounded-full ${dotClass}`} />
+            </div>
+          )
+        })}
+      </div>
+
+      {/* Streak count — right of dots, visible only when > 0 */}
+      {streak > 0 && (
+        <span className="flex items-center gap-1 text-zinc-400 select-none">
+          <span className="text-[11px]">⚡</span>
+          <span className="text-sm font-semibold tabular-nums">{streak}</span>
+        </span>
+      )}
     </div>
   )
 }

@@ -735,12 +735,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       <header className="flex items-center justify-between px-4 py-4 border-b border-zinc-900 safe-top shrink-0">
         <h1 className="text-base font-semibold text-white tracking-tight">DayOS</h1>
         <div className="flex items-center gap-1">
-          {streak !== null && streak > 0 && (
-            <span className="flex items-center gap-1 text-xs font-medium text-zinc-400 px-2 py-1 select-none" title={`${streak}-day streak`}>
-              <span className="text-[11px]">⚡</span>
-              {streak}
-            </span>
-          )}
           <button
             onClick={() => !showNewDayBanner && setPlanOpen(true)}
             className={`text-sm font-medium text-zinc-300 hover:text-white transition-colors px-2 py-1${showNewDayBanner ? ' pointer-events-none' : ''}`}
@@ -771,6 +765,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           weekDays={weekDays}
           today={localToday}
           checkedInDays={checkedInDays}
+          streak={streak ?? 0}
         />
       )}
 

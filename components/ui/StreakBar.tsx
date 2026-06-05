@@ -30,7 +30,7 @@ export default function StreakBar({ weekDays, today, checkedInDays, streak }: St
   const checkedSet = new Set(checkedInDays)
 
   return (
-    <div className="flex items-end justify-center gap-6 px-4 pt-[9px] pb-[25px] mb-[25px] border-b border-zinc-900">
+    <div className="flex items-end justify-center gap-6 px-4 pt-[9px] pb-[25px] mb-[25px] border-b border-zinc-200 dark:border-zinc-900">
       {/* Weekly dots */}
       <div className="flex items-center gap-6">
         {weekDays.map((day, i) => {
@@ -40,24 +40,24 @@ export default function StreakBar({ weekDays, today, checkedInDays, streak }: St
 
           let dotClass = ''
           if (isChecked) {
-            dotClass = 'bg-zinc-300'
+            dotClass = 'bg-zinc-600 dark:bg-zinc-300'
           } else if (isFuture) {
-            dotClass = 'bg-zinc-800'
+            dotClass = 'bg-zinc-200 dark:bg-zinc-800'
           } else if (isToday) {
-            dotClass = 'bg-zinc-900 ring-1 ring-zinc-600'
+            dotClass = 'bg-zinc-400 ring-1 ring-zinc-500 dark:bg-zinc-900 dark:ring-zinc-600'
           } else {
-            dotClass = 'bg-zinc-800'
+            dotClass = 'bg-zinc-200 dark:bg-zinc-800'
           }
 
           return (
             <div key={day} className="flex flex-col items-center gap-1.5">
               {/* Small indicator dot above the label — only on today */}
-              <div className={`w-1 h-1 rounded-full ${isToday ? 'bg-zinc-400' : 'bg-transparent'}`} />
+              <div className={`w-1 h-1 rounded-full ${isToday ? 'bg-zinc-500 dark:bg-zinc-400' : 'bg-transparent'}`} />
               <span
                 className={`text-[10px] tracking-wide leading-none ${
                   isToday
-                    ? 'font-bold text-zinc-300'
-                    : 'font-medium text-zinc-600'
+                    ? 'font-bold text-zinc-700 dark:text-zinc-300'
+                    : 'font-medium text-zinc-400 dark:text-zinc-600'
                 }`}
               >
                 {DAY_LABELS[i]}

@@ -753,7 +753,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   return (
     <div className="relative flex flex-col h-screen h-[100dvh] bg-zinc-950">
       {/* Header */}
-      <header className="flex items-center justify-between px-4 py-4 border-b border-zinc-300 dark:border-white/[0.08] safe-top shrink-0">
+      <header className="flex items-center justify-between px-4 py-4 border-b border-zinc-200 dark:border-white/[0.04] safe-top shrink-0">
         <h1 className="text-base font-semibold text-white tracking-tight">DayOS</h1>
         <div className="flex items-center gap-1">
           <button

@@ -11,6 +11,7 @@
   --text-secondary: #a1a1aa;
   --user-bubble: #27272a;
   --accent: #6366f1;
+  --divider: rgba(255,255,255,0.05);
 }
 
 * {
@@ -79,6 +80,7 @@ textarea {
 
 html[data-theme="light"] {
   color-scheme: light;
+  --divider: #e4e4e7;
 }
 
 html[data-theme="light"] body {

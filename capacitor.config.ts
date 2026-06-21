@@ -28,10 +28,11 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      // Hold the native splash for 2 s, giving the remote page time to load.
-      // launchAutoHide: true means it fades out automatically after the delay
-      // without needing any JS call from the web layer.
-      launchShowDuration: 2000,
+      // Happy path: CapacitorInit (root layout) calls SplashScreen.hide()
+      // as soon as the first page renders, overriding the duration below.
+      // Fallback: if JS never loads (server down, network error), the native
+      // layer auto-hides after 4 s so users are never permanently stuck.
+      launchShowDuration: 4000,
       launchAutoHide: true,
       // Fade duration in ms — 300 ms feels intentional without dragging
       launchFadeOutDuration: 300,

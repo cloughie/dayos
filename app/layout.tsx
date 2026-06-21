@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
 import ServiceWorkerInit from '@/components/ServiceWorkerInit'
+import CapacitorInit from '@/components/CapacitorInit'
 
 const inter = Inter({
   subsets: ['latin'],
@@ -56,6 +57,7 @@ export default function RootLayout({
       </head>
       <body className="bg-zinc-950 text-white antialiased">
         <ServiceWorkerInit />
+        <CapacitorInit />
         {children}
       </body>
     </html>

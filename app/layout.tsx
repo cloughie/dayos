@@ -39,7 +39,7 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" className={inter.variable}>
+    <html lang="en" className={inter.variable} suppressHydrationWarning>
       <head>
         {/* Theme: read localStorage before first paint to avoid flash */}
         <script dangerouslySetInnerHTML={{ __html: `(function(){var t=localStorage.getItem('dayos_theme');if(t==='light'){document.documentElement.setAttribute('data-theme','light');document.documentElement.style.colorScheme='light';}else{document.documentElement.style.colorScheme='dark';}})();` }} />

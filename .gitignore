@@ -21,3 +21,8 @@ tsconfig.tsbuildinfo
 
 # debug
 npm-debug.log*
+
+# Capacitor iOS — commit the project, ignore generated/cached artifacts
+ios/App/Pods/
+ios/App/App.xcworkspace/xcuserdata/
+ios/.DS_Store

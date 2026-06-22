@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -12,6 +13,14 @@ export default async function HomePage() {
   // Middleware handles this too, but belt-and-suspenders: no flicker for returning users
   if (user) {
     redirect('/conversation')
+  }
+
+  // Native app (WKWebView) appends "DayOS-Native" to its User-Agent.
+  // Logged-out native users should land on login, not the marketing page.
+  const headersList = await headers()
+  const ua = headersList.get('user-agent') ?? ''
+  if (ua.includes('DayOS-Native')) {
+    redirect('/auth/login')
   }
 
   return (

@@ -26,6 +26,9 @@ const config: CapacitorConfig = {
     // Keep the status bar transparent so our zinc-950 header fills edge-to-edge
     backgroundColor: '#09090b',
     scrollEnabled: true,
+    // Appended to the default WKWebView UA so server-side code can distinguish
+    // native app requests from web/PWA requests (used for routing at /).
+    appendUserAgent: 'DayOS-Native',
   },
   plugins: {
     SplashScreen: {

@@ -10,9 +10,10 @@ interface SettingsModalProps {
   onClose: () => void
   userEmail: string
   onMemoryOpen: () => void
+  onPrivacyOpen: () => void
 }
 
-export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen }: SettingsModalProps) {
+export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen, onPrivacyOpen }: SettingsModalProps) {
   const router = useRouter()
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
   const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'default'>('default')
@@ -182,7 +183,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
           <p className="text-xs font-medium text-zinc-600 uppercase tracking-wider mb-2 px-1">Privacy &amp; Data</p>
           <div className="rounded-xl overflow-hidden flex flex-col gap-px">
             <button
-              onClick={() => { onClose(); router.push('/privacy') }}
+              onClick={() => { onClose(); onPrivacyOpen() }}
               className="w-full bg-zinc-800/50 px-4 py-3.5 flex items-center justify-between gap-4 hover:bg-zinc-700/50 active:bg-zinc-600/50 transition-colors text-left"
             >
               <div className="flex items-center gap-2">

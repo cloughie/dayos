@@ -6,6 +6,7 @@ import ReactMarkdown from 'react-markdown'
 import rehypeSanitize from 'rehype-sanitize'
 import SettingsModal from '@/components/ui/SettingsModal'
 import MemoryPanel from '@/components/ui/MemoryPanel'
+import PrivacyPanel from '@/components/ui/PrivacyPanel'
 import PlanPanel, { type SavedPlan } from '@/components/ui/PlanPanel'
 import StreakBar, { getLocalWeekDays } from '@/components/ui/StreakBar'
 import ThemeToggle from '@/components/ThemeToggle'
@@ -204,6 +205,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const [isLoading, setIsLoading] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [memoryOpen, setMemoryOpen] = useState(false)
+  const [privacyOpen, setPrivacyOpen] = useState(false)
   const [planOpen, setPlanOpen] = useState(false)
   const [savedPlan, setSavedPlan] = useState<SavedPlan | null>(null)
   const [yesterdayPlan, setYesterdayPlan] = useState<SavedPlan | null>(null)
@@ -1074,12 +1076,19 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         onClose={() => setSettingsOpen(false)}
         userEmail={userEmail}
         onMemoryOpen={() => { setSettingsOpen(false); setMemoryOpen(true) }}
+        onPrivacyOpen={() => { setSettingsOpen(false); setPrivacyOpen(true) }}
       />
 
       {/* Memory panel */}
       <MemoryPanel
         isOpen={memoryOpen}
         onClose={() => setMemoryOpen(false)}
+      />
+
+      {/* Privacy panel */}
+      <PrivacyPanel
+        isOpen={privacyOpen}
+        onClose={() => setPrivacyOpen(false)}
       />
     </div>
   )

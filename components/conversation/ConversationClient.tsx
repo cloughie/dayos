@@ -580,7 +580,11 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         ])
       } finally {
         flushSync(() => setIsLoading(false))
-        requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+        // Skip auto-focus on native iOS — programmatic focus triggers the input accessory
+        // bar to float over the input. User taps to type after reading the response.
+        if (!(window as any).Capacitor?.isNativePlatform?.()) {
+          requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+        }
       }
     },
     [isLoading, messages]
@@ -653,7 +657,9 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       ])
     } finally {
       flushSync(() => setIsLoading(false))
-      requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+      if (!(window as any).Capacitor?.isNativePlatform?.()) {
+        requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+      }
     }
 
     // Persist usage signal so we never show the first-time screen again on

@@ -16,11 +16,11 @@ export default async function HomePage() {
   }
 
   // Native app (WKWebView) appends "DayOS-Native" to its User-Agent.
-  // Logged-out native users should land on login, not the marketing page.
+  // Logged-out native users should land on signup (existing users have a Sign in link there).
   const headersList = await headers()
   const ua = headersList.get('user-agent') ?? ''
   if (ua.includes('DayOS-Native')) {
-    redirect('/auth/login')
+    redirect('/auth/signup')
   }
 
   return (

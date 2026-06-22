@@ -16,9 +16,10 @@ const config: CapacitorConfig = {
   // Its contents are NOT served to the app — the server.url below takes over.
   webDir: 'public',
   server: {
-    // /launch is the native app entry point: redirects to /conversation (logged in)
-    // or /auth/login (logged out). Web PWA continues to use / via manifest.json.
-    url: `${serverUrl}/launch`,
+    // Origin only — no path. Capacitor checks navigation URLs with starts(with: serverURL),
+    // so including a path (e.g. /launch) causes every redirect away from that path to be
+    // treated as external and opened in Safari instead of staying in the WKWebView.
+    url: serverUrl,
     cleartext: allowCleartext,
   },
   ios: {

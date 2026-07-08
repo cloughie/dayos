@@ -25,7 +25,6 @@ export async function GET(request: Request) {
 
   const supabase = createAdminClient()
 
-  // Fetch all users with push enabled and permission granted
   const { data: enabledProfiles } = await supabase
     .from('user_profiles')
     .select('id')
@@ -36,13 +35,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ dryRun, total: 0, sent: 0, failed: 0, expired: 0 })
   }
 
-  // Fetch their subscriptions
-  const { data: subscriptions } = await supabase
-    .from('push_subscriptions')
+  // Web-only broadcast (APNs broadcast is V2)
+  const { data: devices } = await supabase
+    .from('push_devices')
     .select('user_id, endpoint, p256dh, auth')
+    .eq('platform', 'web')
     .in('user_id', enabledProfiles.map((p) => p.id))
 
-  const total = subscriptions?.length ?? 0
+  const total = devices?.length ?? 0
 
   if (!total) {
     return NextResponse.json({ dryRun, total: 0, sent: 0, failed: 0, expired: 0 })
@@ -56,23 +56,26 @@ export async function GET(request: Request) {
   let failed = 0
   let expired = 0
 
-  for (const sub of subscriptions!) {
+  for (const dev of devices!) {
     try {
       await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        { endpoint: dev.endpoint!, keys: { p256dh: dev.p256dh!, auth: dev.auth! } },
         JSON.stringify(BROADCAST_MESSAGE),
       )
       sent++
     } catch (err: unknown) {
       const status = (err as { statusCode?: number })?.statusCode
       if (status === 404 || status === 410) {
-        // Expired/unregistered subscription — clean up, same as daily cron
         expired++
-        await supabase.from('push_subscriptions').delete().eq('user_id', sub.user_id)
-        await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', sub.user_id)
+        await supabase.from('push_devices').delete()
+          .eq('user_id', dev.user_id)
+          .eq('platform', 'web')
+        await supabase.from('user_profiles')
+          .update({ push_notifications_enabled: false })
+          .eq('id', dev.user_id)
       } else {
         failed++
-        console.error('[Broadcast] Send error for user:', sub.user_id, err)
+        console.error('[Broadcast] Send error for user:', dev.user_id, err)
       }
     }
   }

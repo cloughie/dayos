@@ -13,6 +13,7 @@ import ThemeToggle from '@/components/ThemeToggle'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
+import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
 
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
@@ -454,6 +455,22 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     if (user) {
       await supabase.from('user_profiles').update({ has_seen_push_prompt: true }).eq('id', user.id)
     }
+
+    if (isNative()) {
+      // Native iOS: request permission via the system dialog, then register with APNs
+      const permission = await requestNativePermission()
+      if (permission !== 'granted') return
+      const token = await registerForNativePush()
+      if (!token) return
+      await fetch('/api/push/register-device', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+      }).catch(() => {})
+      return
+    }
+
+    // Web path: existing behaviour
     if (typeof Notification === 'undefined') return
     const permission = await Notification.requestPermission()
     if (permission !== 'granted') return

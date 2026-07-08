@@ -1,35 +1,42 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 
+// Called by the native iOS app after APNs registration.
+// Stores/updates the device's APNs token and enables push notifications for the user.
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-    const { endpoint, p256dh, auth, timezone } = await request.json()
-    if (!endpoint || !p256dh || !auth) {
-      return NextResponse.json({ error: 'Missing fields' }, { status: 400 })
+    const { apns_token, timezone } = await request.json()
+    if (!apns_token || typeof apns_token !== 'string') {
+      return NextResponse.json({ error: 'Missing apns_token' }, { status: 400 })
     }
 
     const { error: upsertError } = await supabase.from('push_devices').upsert({
       user_id: user.id,
-      platform: 'web',
-      endpoint,
-      p256dh,
-      auth,
+      platform: 'ios',
+      apns_token,
       timezone: timezone ?? 'UTC',
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id,platform' })
 
     if (upsertError) {
-      console.error('[Push] Upsert failed:', upsertError)
+      console.error('[Push/iOS] Upsert failed:', upsertError)
       return NextResponse.json({ error: upsertError.message }, { status: 500 })
     }
 
+    // Mark push as enabled and permission as granted
+    await supabase.from('user_profiles').update({
+      push_notifications_enabled: true,
+      push_notifications_permission_status: 'granted',
+    }).eq('id', user.id)
+
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[Push] Subscribe error:', err)
+    console.error('[Push/iOS] Register error:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }
@@ -42,7 +49,7 @@ export async function DELETE() {
 
     await supabase.from('push_devices').delete()
       .eq('user_id', user.id)
-      .eq('platform', 'web')
+      .eq('platform', 'ios')
 
     // Only disable the preference flag if the user has no remaining push devices
     const { count } = await supabase.from('push_devices')
@@ -57,7 +64,7 @@ export async function DELETE() {
 
     return NextResponse.json({ ok: true })
   } catch (err) {
-    console.error('[Push] Unsubscribe error:', err)
+    console.error('[Push/iOS] Unregister error:', err)
     return NextResponse.json({ error: 'Internal error' }, { status: 500 })
   }
 }

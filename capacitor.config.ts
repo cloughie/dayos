@@ -31,6 +31,10 @@ const config: CapacitorConfig = {
     appendUserAgent: 'DayOS-Native',
   },
   plugins: {
+    PushNotifications: {
+      // Show the alert/sound/badge even when the app is open in the foreground.
+      presentationOptions: ['badge', 'sound', 'alert'],
+    },
     SplashScreen: {
       // Happy path: CapacitorInit (root layout) calls SplashScreen.hide()
       // as soon as the first page renders, overriding the duration below.

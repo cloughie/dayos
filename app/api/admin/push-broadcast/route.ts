@@ -58,18 +58,20 @@ export async function POST(request: Request) {
     return NextResponse.json({ dryRun: !!dry_run, total: 0, sent: 0, failed: 0, expired: 0 })
   }
 
-  const { data: subscriptions } = await admin
-    .from('push_subscriptions')
+  // Web-only broadcast (APNs broadcast is V2)
+  const { data: devices } = await admin
+    .from('push_devices')
     .select('user_id, endpoint, p256dh, auth')
+    .eq('platform', 'web')
     .in('user_id', enabledProfiles.map((p) => p.id))
 
-  const total = subscriptions?.length ?? 0
+  const total = devices?.length ?? 0
 
   if (!total || dry_run) {
     return NextResponse.json({ dryRun: true, total, sent: 0, failed: 0, expired: 0 })
   }
 
-  // ── Log broadcast row (before send, so we have the ID for the URL) ────────
+  // ── Log broadcast row ─────────────────────────────────────────────────────
   const { data: broadcastRecord } = await admin
     .from('push_broadcasts')
     .insert({
@@ -84,7 +86,6 @@ export async function POST(request: Request) {
 
   const broadcastId = broadcastRecord?.id as string | undefined
 
-  // Embed broadcast_id in the destination URL so opens can be attributed.
   const notifUrl = broadcastId
     ? `${url}${url.includes('?') ? '&' : '?'}source=push_broadcast&broadcast_id=${broadcastId}`
     : url
@@ -96,10 +97,10 @@ export async function POST(request: Request) {
   let failed = 0
   let expired = 0
 
-  for (const sub of subscriptions!) {
+  for (const dev of devices!) {
     try {
       await webpush.sendNotification(
-        { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+        { endpoint: dev.endpoint!, keys: { p256dh: dev.p256dh!, auth: dev.auth! } },
         JSON.stringify(message),
       )
       sent++
@@ -107,17 +108,18 @@ export async function POST(request: Request) {
       const status = (err as { statusCode?: number })?.statusCode
       if (status === 404 || status === 410) {
         expired++
-        await admin.from('push_subscriptions').delete().eq('user_id', sub.user_id)
+        await admin.from('push_devices').delete()
+          .eq('user_id', dev.user_id)
+          .eq('platform', 'web')
         await admin.from('user_profiles')
-          .update({ push_notifications_enabled: false }).eq('id', sub.user_id)
+          .update({ push_notifications_enabled: false }).eq('id', dev.user_id)
       } else {
         failed++
-        console.error('[AdminBroadcast] Send error for user:', sub.user_id, err)
+        console.error('[AdminBroadcast] Send error for user:', dev.user_id, err)
       }
     }
   }
 
-  // Update the broadcast row with final counts.
   if (broadcastId) {
     await admin
       .from('push_broadcasts')

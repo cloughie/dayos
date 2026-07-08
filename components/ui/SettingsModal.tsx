@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
+import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -52,7 +53,19 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
     const supabase = createClient()
 
     if (enable) {
-      if (permStatus === 'granted') {
+      if (isNative()) {
+        // Native iOS: request permission via the system dialog, then register with APNs
+        const permission = await requestNativePermission()
+        if (permission !== 'granted') return
+        const token = await registerForNativePush()
+        if (!token) return
+        await fetch('/api/push/register-device', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        }).catch(() => {})
+        setNotificationsEnabled(true)
+      } else if (permStatus === 'granted') {
         const subscription = await subscribeToPush()
         if (subscription) await savePushSubscription(subscription)
         await supabase.from('user_profiles').update({ push_notifications_enabled: true }).eq('id', userId)
@@ -73,8 +86,12 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         setPermStatus(permission as 'granted' | 'denied' | 'default')
       }
     } else {
-      await fetch('/api/push/subscribe', { method: 'DELETE' })
-      await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
+      if (isNative()) {
+        await fetch('/api/push/register-device', { method: 'DELETE' }).catch(() => {})
+      } else {
+        await fetch('/api/push/subscribe', { method: 'DELETE' })
+        await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
+      }
       setNotificationsEnabled(false)
     }
   }

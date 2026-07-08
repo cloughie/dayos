@@ -214,6 +214,18 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
               />
             </button>
           </div>
+
+          {/* TEMPORARY DEBUG — remove after confirming tap delivery */}
+          <button
+            type="button"
+            onClick={() => {
+              console.log('[Settings] TEST TAP CLICKED')
+              alert('test tap clicked')
+            }}
+            className="mt-2 w-full bg-amber-500/20 text-amber-400 rounded-xl px-4 py-3 text-sm font-medium text-center"
+          >
+            Test tap
+          </button>
         </div>
 
         {/* Developer — admin only */}
@@ -304,6 +316,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         >
           Cancel
         </button>
+
+        {/* TEMPORARY DEBUG — remove after confirming JS version */}
+        <p className="text-center text-xs text-zinc-700 mt-2">Debug build: 7c865ff</p>
       </div>
     </>
   )

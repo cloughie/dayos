@@ -163,13 +163,13 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
 
   return (
     <>
-      {/* Overlay */}
-      <div
-        className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
-        onPointerDown={() => console.log('[Settings] Overlay pointerdown — tap landed on backdrop, not modal')}
-        onClick={onClose}
-        aria-hidden="true"
-      />
+      {/* Backdrop blur — pointer-events-none because backdrop-filter captures all
+          touches across the viewport in iOS WKWebView regardless of z-index.
+          Tap-to-close is handled by the transparent layer below. */}
+      <div className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm pointer-events-none" aria-hidden="true" />
+
+      {/* Tap-outside-to-close — sits above backdrop, below modal panel */}
+      <div className="fixed inset-0 z-[45]" onClick={onClose} aria-hidden="true" />
 
       {/* Modal */}
       <div className="fixed inset-x-0 bottom-0 z-50 bg-zinc-900 rounded-t-2xl border-t border-zinc-800 p-6 safe-bottom">
@@ -191,40 +191,28 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         {/* Preferences */}
         <div className="mb-5">
           <p className="text-xs font-medium text-zinc-600 uppercase tracking-wider mb-2 px-1">Preferences</p>
-          <div className="bg-zinc-800/50 rounded-xl px-4 py-3.5 flex items-center justify-between gap-4">
+          {/* Full-row button: avoids iOS WKWebView issues with role="switch"/disabled on small elements */}
+          <button
+            type="button"
+            onClick={() => {
+              console.log('[Settings] Row tapped. busy:', notificationsBusy, 'userId:', userId, 'isNative:', isNative())
+              handleNotificationToggle(!notificationsEnabled)
+            }}
+            className={`w-full bg-zinc-800/50 rounded-xl px-4 py-3.5 flex items-center justify-between gap-4 text-left transition-opacity ${notificationsBusy ? 'opacity-50 pointer-events-none' : ''}`}
+          >
             <div>
               <p className="text-sm text-zinc-200 font-medium">Morning reminder</p>
               <p className="text-xs text-zinc-500 mt-0.5">Daily reminder to check in.</p>
             </div>
-            <button
-              type="button"
-              role="switch"
-              aria-checked={notificationsEnabled}
-              disabled={notificationsBusy}
-              onPointerDown={() => console.log('[Settings] Toggle pointerdown — event reached button. busy:', notificationsBusy, 'enabled:', notificationsEnabled)}
-              onTouchStart={() => console.log('[Settings] Toggle touchstart — event reached button')}
-              onClick={() => {
-                console.log('[Settings] Toggle click fired. busy:', notificationsBusy, 'userId:', userId)
-                handleNotificationToggle(!notificationsEnabled)
-              }}
-              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-white' : 'bg-zinc-700'} ${notificationsBusy ? 'opacity-50' : ''}`}
+            {/* Visual switch — decorative only, pointer-events handled by parent button */}
+            <span
+              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors pointer-events-none ${notificationsEnabled ? 'bg-white' : 'bg-zinc-700'}`}
+              aria-hidden="true"
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-zinc-900 shadow transition-transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}
               />
-            </button>
-          </div>
-
-          {/* TEMPORARY DEBUG — remove after confirming tap delivery */}
-          <button
-            type="button"
-            onClick={() => {
-              console.log('[Settings] TEST TAP CLICKED')
-              alert('test tap clicked')
-            }}
-            className="mt-2 w-full bg-amber-500/20 text-amber-400 rounded-xl px-4 py-3 text-sm font-medium text-center"
-          >
-            Test tap
+            </span>
           </button>
         </div>
 
@@ -316,9 +304,6 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         >
           Cancel
         </button>
-
-        {/* TEMPORARY DEBUG — remove after confirming JS version */}
-        <p className="text-center text-xs text-zinc-700 mt-2">Debug build: 7c865ff</p>
       </div>
     </>
   )

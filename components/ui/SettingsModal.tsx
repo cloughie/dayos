@@ -31,6 +31,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
 
   useEffect(() => {
     if (!isOpen) return
+    // Always reset busy on open — guards against stuck state if a previous
+    // async attempt never reached its finally block (e.g. navigation mid-flow).
+    setNotificationsBusy(false)
     console.log('[Settings] Modal opened. isNative:', isNative())
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
@@ -163,6 +166,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
       {/* Overlay */}
       <div
         className="fixed inset-0 bg-black/60 z-40 backdrop-blur-sm"
+        onPointerDown={() => console.log('[Settings] Overlay pointerdown — tap landed on backdrop, not modal')}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -197,7 +201,12 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
               role="switch"
               aria-checked={notificationsEnabled}
               disabled={notificationsBusy}
-              onClick={() => handleNotificationToggle(!notificationsEnabled)}
+              onPointerDown={() => console.log('[Settings] Toggle pointerdown — event reached button. busy:', notificationsBusy, 'enabled:', notificationsEnabled)}
+              onTouchStart={() => console.log('[Settings] Toggle touchstart — event reached button')}
+              onClick={() => {
+                console.log('[Settings] Toggle click fired. busy:', notificationsBusy, 'userId:', userId)
+                handleNotificationToggle(!notificationsEnabled)
+              }}
               className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-white' : 'bg-zinc-700'} ${notificationsBusy ? 'opacity-50' : ''}`}
             >
               <span

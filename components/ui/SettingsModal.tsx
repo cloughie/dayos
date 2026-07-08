@@ -17,6 +17,7 @@ interface SettingsModalProps {
 export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen, onPrivacyOpen }: SettingsModalProps) {
   const router = useRouter()
   const [notificationsEnabled, setNotificationsEnabled] = useState(false)
+  const [notificationsBusy, setNotificationsBusy] = useState(false)
   const [permStatus, setPermStatus] = useState<'granted' | 'denied' | 'default'>('default')
   const [userId, setUserId] = useState<string | null>(null)
   const [modelPref, setModelPref] = useState<'claude' | 'openai'>('claude')
@@ -30,9 +31,13 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
 
   useEffect(() => {
     if (!isOpen) return
+    console.log('[Settings] Modal opened. isNative:', isNative())
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) return
+      if (!user) {
+        console.warn('[Settings] No authenticated user found')
+        return
+      }
       setUserId(user.id)
       supabase
         .from('user_profiles')
@@ -41,6 +46,10 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         .single()
         .then(({ data }) => {
           if (!data) return
+          console.log('[Settings] Profile loaded:', {
+            push_notifications_enabled: data.push_notifications_enabled,
+            push_notifications_permission_status: data.push_notifications_permission_status,
+          })
           setNotificationsEnabled(data.push_notifications_enabled ?? false)
           setPermStatus((data.push_notifications_permission_status ?? 'default') as 'granted' | 'denied' | 'default')
           setIsAdmin(data.dev_tools_enabled ?? false)
@@ -49,70 +58,92 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   }, [isOpen])
 
   async function handleNotificationToggle(enable: boolean) {
-    if (!userId) return
+    console.log('[Settings] Toggle clicked. enable:', enable, '| userId:', userId, '| isNative:', isNative(), '| busy:', notificationsBusy)
+    if (!userId) {
+      console.warn('[Settings] Aborting: userId is null (auth not loaded yet)')
+      return
+    }
+    if (notificationsBusy) {
+      console.warn('[Settings] Aborting: already in progress')
+      return
+    }
+
+    setNotificationsBusy(true)
     const supabase = createClient()
 
-    if (enable) {
-      if (isNative()) {
-        // Native iOS: request permission via the system dialog, then register with APNs
-        console.log('[Settings] isNative=true, starting native push flow')
-        const permission = await requestNativePermission()
-        console.log('[Settings] Permission:', permission)
-        if (permission !== 'granted') {
-          console.warn('[Settings] Permission not granted, aborting')
-          return
-        }
-        const token = await registerForNativePush()
-        console.log('[Settings] Token:', token)
-        if (!token) {
-          console.error('[Settings] No token returned from registerForNativePush, aborting')
-          return
-        }
-        console.log('[Settings] POSTing token to /api/push/register-device...')
-        const res = await fetch('/api/push/register-device', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-        }).catch((err) => {
-          console.error('[Settings] fetch threw:', err)
-          return null
-        })
-        if (!res) return
-        const body = await res.json().catch(() => null)
-        console.log('[Settings] register-device response:', res.status, JSON.stringify(body))
-        if (!res.ok) {
-          console.error('[Settings] register-device failed, aborting')
-          return
-        }
-        setNotificationsEnabled(true)
-      } else if (permStatus === 'granted') {
-        const subscription = await subscribeToPush()
-        if (subscription) await savePushSubscription(subscription)
-        await supabase.from('user_profiles').update({ push_notifications_enabled: true }).eq('id', userId)
-        setNotificationsEnabled(true)
-      } else {
-        if (typeof Notification === 'undefined') return
-        const permission = await Notification.requestPermission()
-        const granted = permission === 'granted'
-        if (granted) {
+    try {
+      if (enable) {
+        if (isNative()) {
+          // Native iOS: request permission via the system dialog, then register with APNs
+          console.log('[Settings] Native path: requesting permission...')
+          const permission = await requestNativePermission()
+          console.log('[Settings] Permission result:', permission)
+          if (permission !== 'granted') {
+            console.warn('[Settings] Permission not granted, aborting')
+            return
+          }
+          const token = await registerForNativePush()
+          console.log('[Settings] APNs token:', token)
+          if (!token) {
+            console.error('[Settings] No token returned, aborting')
+            return
+          }
+          console.log('[Settings] POSTing to /api/push/register-device...')
+          const res = await fetch('/api/push/register-device', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+          }).catch((err) => {
+            console.error('[Settings] fetch threw:', err)
+            return null
+          })
+          if (!res) return
+          const body = await res.json().catch(() => null)
+          console.log('[Settings] register-device response:', res.status, JSON.stringify(body))
+          if (!res.ok) {
+            console.error('[Settings] register-device failed, aborting')
+            return
+          }
+          setNotificationsEnabled(true)
+        } else if (permStatus === 'granted') {
+          console.log('[Settings] Web path: permission already granted, re-subscribing...')
           const subscription = await subscribeToPush()
           if (subscription) await savePushSubscription(subscription)
+          await supabase.from('user_profiles').update({ push_notifications_enabled: true }).eq('id', userId)
+          setNotificationsEnabled(true)
+        } else {
+          console.log('[Settings] Web path: requesting browser permission...')
+          if (typeof Notification === 'undefined') {
+            console.warn('[Settings] Notification API unavailable (WKWebView without native path?)')
+            return
+          }
+          const permission = await Notification.requestPermission()
+          const granted = permission === 'granted'
+          console.log('[Settings] Browser permission:', permission)
+          if (granted) {
+            const subscription = await subscribeToPush()
+            if (subscription) await savePushSubscription(subscription)
+          }
+          await supabase.from('user_profiles').update({
+            push_notifications_enabled: granted,
+            push_notifications_permission_status: permission,
+          }).eq('id', userId)
+          setNotificationsEnabled(granted)
+          setPermStatus(permission as 'granted' | 'denied' | 'default')
         }
-        await supabase.from('user_profiles').update({
-          push_notifications_enabled: granted,
-          push_notifications_permission_status: permission,
-        }).eq('id', userId)
-        setNotificationsEnabled(granted)
-        setPermStatus(permission as 'granted' | 'denied' | 'default')
-      }
-    } else {
-      if (isNative()) {
-        await fetch('/api/push/register-device', { method: 'DELETE' }).catch(() => {})
       } else {
-        await fetch('/api/push/subscribe', { method: 'DELETE' })
-        await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
+        if (isNative()) {
+          console.log('[Settings] Native path: unregistering device...')
+          await fetch('/api/push/register-device', { method: 'DELETE' }).catch(() => {})
+        } else {
+          console.log('[Settings] Web path: unsubscribing...')
+          await fetch('/api/push/subscribe', { method: 'DELETE' })
+          await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
+        }
+        setNotificationsEnabled(false)
       }
-      setNotificationsEnabled(false)
+    } finally {
+      setNotificationsBusy(false)
     }
   }
 
@@ -165,8 +196,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
               type="button"
               role="switch"
               aria-checked={notificationsEnabled}
+              disabled={notificationsBusy}
               onClick={() => handleNotificationToggle(!notificationsEnabled)}
-              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-white' : 'bg-zinc-700'}`}
+              className={`relative shrink-0 w-11 h-6 rounded-full transition-colors ${notificationsEnabled ? 'bg-white' : 'bg-zinc-700'} ${notificationsBusy ? 'opacity-50' : ''}`}
             >
               <span
                 className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-zinc-900 shadow transition-transform ${notificationsEnabled ? 'translate-x-5' : 'translate-x-0'}`}

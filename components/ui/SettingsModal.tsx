@@ -55,15 +55,35 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
     if (enable) {
       if (isNative()) {
         // Native iOS: request permission via the system dialog, then register with APNs
+        console.log('[Settings] isNative=true, starting native push flow')
         const permission = await requestNativePermission()
-        if (permission !== 'granted') return
+        console.log('[Settings] Permission:', permission)
+        if (permission !== 'granted') {
+          console.warn('[Settings] Permission not granted, aborting')
+          return
+        }
         const token = await registerForNativePush()
-        if (!token) return
-        await fetch('/api/push/register-device', {
+        console.log('[Settings] Token:', token)
+        if (!token) {
+          console.error('[Settings] No token returned from registerForNativePush, aborting')
+          return
+        }
+        console.log('[Settings] POSTing token to /api/push/register-device...')
+        const res = await fetch('/api/push/register-device', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-        }).catch(() => {})
+        }).catch((err) => {
+          console.error('[Settings] fetch threw:', err)
+          return null
+        })
+        if (!res) return
+        const body = await res.json().catch(() => null)
+        console.log('[Settings] register-device response:', res.status, JSON.stringify(body))
+        if (!res.ok) {
+          console.error('[Settings] register-device failed, aborting')
+          return
+        }
         setNotificationsEnabled(true)
       } else if (permStatus === 'granted') {
         const subscription = await subscribeToPush()

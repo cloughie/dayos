@@ -23,6 +23,7 @@ export default function Loading() {
           fontSize: '13px',
           letterSpacing: '0.06em',
           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+          transform: 'translateX(0.03em)',
         }}
       >
         DayOS

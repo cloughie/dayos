@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import MarkdownContent from '@/components/ui/MarkdownContent'
 
 export interface SavedPlan {
   content: string
@@ -143,9 +144,10 @@ export default function PlanPanel({ isOpen, onClose, plan, yesterdayPlan }: Plan
 
         <div ref={scrollRef} className="overflow-y-auto flex-1 min-h-0">
           {activePlan ? (
-            <p className="text-sm text-zinc-200 leading-relaxed whitespace-pre-wrap">
-              {activePlan.content}
-            </p>
+            <MarkdownContent
+              content={activePlan.content}
+              className="text-sm text-zinc-200 leading-relaxed"
+            />
           ) : (
             <p className="text-sm text-zinc-500 text-center py-8">
               This is where your day lives.<br />

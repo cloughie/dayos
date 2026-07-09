@@ -34,13 +34,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
     // Always reset busy on open — guards against stuck state if a previous
     // async attempt never reached its finally block (e.g. navigation mid-flow).
     setNotificationsBusy(false)
-    console.log('[Settings] Modal opened. isNative:', isNative())
     const supabase = createClient()
     supabase.auth.getUser().then(({ data: { user } }) => {
-      if (!user) {
-        console.warn('[Settings] No authenticated user found')
-        return
-      }
+      if (!user) return
       setUserId(user.id)
       supabase
         .from('user_profiles')
@@ -49,10 +45,6 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         .single()
         .then(({ data }) => {
           if (!data) return
-          console.log('[Settings] Profile loaded:', {
-            push_notifications_enabled: data.push_notifications_enabled,
-            push_notifications_permission_status: data.push_notifications_permission_status,
-          })
           setNotificationsEnabled(data.push_notifications_enabled ?? false)
           setPermStatus((data.push_notifications_permission_status ?? 'default') as 'granted' | 'denied' | 'default')
           setIsAdmin(data.dev_tools_enabled ?? false)
@@ -61,15 +53,8 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   }, [isOpen])
 
   async function handleNotificationToggle(enable: boolean) {
-    console.log('[Settings] Toggle clicked. enable:', enable, '| userId:', userId, '| isNative:', isNative(), '| busy:', notificationsBusy)
-    if (!userId) {
-      console.warn('[Settings] Aborting: userId is null (auth not loaded yet)')
-      return
-    }
-    if (notificationsBusy) {
-      console.warn('[Settings] Aborting: already in progress')
-      return
-    }
+    if (!userId) return
+    if (notificationsBusy) return
 
     setNotificationsBusy(true)
     const supabase = createClient()
@@ -78,51 +63,26 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
       if (enable) {
         if (isNative()) {
           // Native iOS: request permission via the system dialog, then register with APNs
-          console.log('[Settings] Native path: requesting permission...')
           const permission = await requestNativePermission()
-          console.log('[Settings] Permission result:', permission)
-          if (permission !== 'granted') {
-            console.warn('[Settings] Permission not granted, aborting')
-            return
-          }
+          if (permission !== 'granted') return
           const token = await registerForNativePush()
-          console.log('[Settings] APNs token:', token)
-          if (!token) {
-            console.error('[Settings] No token returned, aborting')
-            return
-          }
-          console.log('[Settings] POSTing to /api/push/register-device...')
+          if (!token) return
           const res = await fetch('/api/push/register-device', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-          }).catch((err) => {
-            console.error('[Settings] fetch threw:', err)
-            return null
-          })
-          if (!res) return
-          const body = await res.json().catch(() => null)
-          console.log('[Settings] register-device response:', res.status, JSON.stringify(body))
-          if (!res.ok) {
-            console.error('[Settings] register-device failed, aborting')
-            return
-          }
+          }).catch(() => null)
+          if (!res || !res.ok) return
           setNotificationsEnabled(true)
         } else if (permStatus === 'granted') {
-          console.log('[Settings] Web path: permission already granted, re-subscribing...')
           const subscription = await subscribeToPush()
           if (subscription) await savePushSubscription(subscription)
           await supabase.from('user_profiles').update({ push_notifications_enabled: true }).eq('id', userId)
           setNotificationsEnabled(true)
         } else {
-          console.log('[Settings] Web path: requesting browser permission...')
-          if (typeof Notification === 'undefined') {
-            console.warn('[Settings] Notification API unavailable (WKWebView without native path?)')
-            return
-          }
+          if (typeof Notification === 'undefined') return
           const permission = await Notification.requestPermission()
           const granted = permission === 'granted'
-          console.log('[Settings] Browser permission:', permission)
           if (granted) {
             const subscription = await subscribeToPush()
             if (subscription) await savePushSubscription(subscription)
@@ -136,10 +96,8 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         }
       } else {
         if (isNative()) {
-          console.log('[Settings] Native path: unregistering device...')
           await fetch('/api/push/register-device', { method: 'DELETE' }).catch(() => {})
         } else {
-          console.log('[Settings] Web path: unsubscribing...')
           await fetch('/api/push/subscribe', { method: 'DELETE' })
           await supabase.from('user_profiles').update({ push_notifications_enabled: false }).eq('id', userId)
         }
@@ -194,10 +152,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
           {/* Full-row button: avoids iOS WKWebView issues with role="switch"/disabled on small elements */}
           <button
             type="button"
-            onClick={() => {
-              console.log('[Settings] Row tapped. busy:', notificationsBusy, 'userId:', userId, 'isNative:', isNative())
-              handleNotificationToggle(!notificationsEnabled)
-            }}
+            onClick={() => handleNotificationToggle(!notificationsEnabled)}
             className={`w-full bg-zinc-800/50 rounded-xl px-4 py-3.5 flex items-center justify-between gap-4 text-left transition-opacity ${notificationsBusy ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <div>

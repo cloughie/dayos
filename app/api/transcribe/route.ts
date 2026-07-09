@@ -21,7 +21,6 @@ export async function POST(request: Request) {
       model: 'whisper-1',
     })
 
-    console.log('[Transcribe] Result:', transcription.text)
     return NextResponse.json({ text: transcription.text })
   } catch (error) {
     console.error('[Transcribe] Error:', error)

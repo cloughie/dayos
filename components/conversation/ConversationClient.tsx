@@ -458,32 +458,15 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
     if (isNative()) {
       // Native iOS: request permission via the system dialog, then register with APNs
-      console.log('[PushPrompt] isNative=true, starting native push flow')
       const permission = await requestNativePermission()
-      console.log('[PushPrompt] Permission:', permission)
-      if (permission !== 'granted') {
-        console.warn('[PushPrompt] Permission not granted, aborting')
-        return
-      }
+      if (permission !== 'granted') return
       const token = await registerForNativePush()
-      console.log('[PushPrompt] Token:', token)
-      if (!token) {
-        console.error('[PushPrompt] No token returned, aborting')
-        return
-      }
-      console.log('[PushPrompt] POSTing to /api/push/register-device...')
-      const res = await fetch('/api/push/register-device', {
+      if (!token) return
+      await fetch('/api/push/register-device', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
-      }).catch((err) => {
-        console.error('[PushPrompt] fetch threw:', err)
-        return null
-      })
-      if (res) {
-        const body = await res.json().catch(() => null)
-        console.log('[PushPrompt] register-device response:', res.status, JSON.stringify(body))
-      }
+      }).catch(() => null)
       return
     }
 

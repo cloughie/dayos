@@ -4,6 +4,7 @@ import { Suspense, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
+import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
 
 type Step = 'name' | 'welcome'
 
@@ -76,6 +77,28 @@ function OnboardingFlow() {
   }
 
   async function handleReminderYes() {
+    if (isNative()) {
+      // Native iOS: request APNs permission, register device, then mark prompt seen
+      const permission = await requestNativePermission()
+      if (permission !== 'granted') {
+        await saveNotificationPrefs(false, 'denied')
+        router.push('/conversation')
+        return
+      }
+      const token = await registerForNativePush()
+      if (token) {
+        await fetch('/api/push/register-device', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ apns_token: token, timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }),
+        }).catch(() => null)
+      }
+      await saveNotificationPrefs(!!token, token ? 'granted' : 'denied')
+      router.push('/conversation')
+      return
+    }
+
+    // Web path
     if (typeof Notification === 'undefined') {
       await saveNotificationPrefs(false, 'denied')
       router.push('/conversation')

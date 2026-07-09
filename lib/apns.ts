@@ -1,6 +1,19 @@
 import http2 from 'http2'
 import { createSign } from 'crypto'
 
+// Normalises a .p8 PEM key from an env var.
+// Vercel may store multiline secrets with literal newlines OR with escaped \n;
+// either way we end up with valid 64-char-wrapped PEM that OpenSSL 3 can parse.
+function normalizePemKey(raw: string): string {
+  // Convert escaped \n sequences to real newlines, then trim surrounding whitespace.
+  const key = raw.replace(/\\n/g, '\n').trim()
+  // Extract just the base64 body, stripping headers/footers and any whitespace.
+  const body = key.replace(/-----[^-]+-----/g, '').replace(/\s+/g, '')
+  // Re-wrap into 64-char lines (OpenSSL 3 requires this).
+  const lines = (body.match(/.{1,64}/g) ?? []).join('\n')
+  return `-----BEGIN PRIVATE KEY-----\n${lines}\n-----END PRIVATE KEY-----`
+}
+
 // Generates a JWT for APNs authentication using ES256 (the .p8 key from Apple).
 // The JWT is valid for ~1 hour; we regenerate per cron invocation.
 function makeApnsJwt(keyId: string, teamId: string, privateKey: string): string {
@@ -28,8 +41,7 @@ export async function sendApnsNotification(
   const keyId     = process.env.APNS_KEY_ID
   const teamId    = process.env.APNS_TEAM_ID
   const bundleId  = process.env.APNS_BUNDLE_ID
-  // Vercel stores multiline secrets with literal newlines; handle both forms.
-  const privateKey = (process.env.APNS_PRIVATE_KEY ?? '').replace(/\\n/g, '\n')
+  const privateKey = normalizePemKey(process.env.APNS_PRIVATE_KEY ?? '')
 
   if (!keyId || !teamId || !bundleId || !privateKey) {
     console.error('[APNs] Missing required env vars (APNS_KEY_ID / APNS_TEAM_ID / APNS_BUNDLE_ID / APNS_PRIVATE_KEY)')

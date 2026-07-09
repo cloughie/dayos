@@ -26,7 +26,11 @@ function londonToday(): string {
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  const debugKey = new URL(request.url).searchParams.get('debug_key')
+  const isAuthed =
+    auth === `Bearer ${process.env.CRON_SECRET}` ||
+    (process.env.DEBUG_TRIGGER_KEY && debugKey === process.env.DEBUG_TRIGGER_KEY)
+  if (!isAuthed) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

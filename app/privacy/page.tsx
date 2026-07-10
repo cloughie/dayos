@@ -40,7 +40,7 @@ export default function PrivacyPage() {
               { label: 'Account', detail: 'Your email address and optional preferred name, used to sign in and personalise the app.' },
               { label: 'Plans & memories', detail: 'Your saved daily plans and any memories you store are encrypted and securely stored in our database.' },
               { label: 'Push notification token', detail: 'If you enable notifications, we store your device token and timezone to send your daily reminder.' },
-              { label: 'Usage events', detail: 'Basic events like opening the app, starting a check-in, or saving a plan — linked to your account, used only to power features like your streak.' },
+              { label: 'Usage events', detail: 'Basic events like opening the app, starting a check-in, or saving a plan — linked to your account, used to improve the app and understand how features are used.' },
             ].map(({ label, detail }) => (
               <div key={label} className="px-4 py-3.5">
                 <p className="text-sm font-medium text-zinc-200 mb-0.5">{label}</p>
@@ -101,14 +101,14 @@ export default function PrivacyPage() {
             <div className="px-4 py-3.5">
               <p className="text-sm text-zinc-300 leading-relaxed">
                 To delete your account and all associated data, email{' '}
-                <a href="mailto:hi@dayos.app" className="text-white underline underline-offset-2">hi@dayos.app</a>.
-                We&apos;ll remove everything within 30 days.
+                <a href="mailto:cloughie@gmail.com" className="text-white underline underline-offset-2">cloughie@gmail.com</a>.
+                We&apos;ll process your request and delete your account and associated data within 30 days.
               </p>
             </div>
             <div className="px-4 py-3.5">
               <p className="text-sm text-zinc-400 leading-relaxed">
                 Questions about privacy? Reach out at{' '}
-                <a href="mailto:hi@dayos.app" className="text-zinc-300 underline underline-offset-2">hi@dayos.app</a>.
+                <a href="mailto:cloughie@gmail.com" className="text-zinc-300 underline underline-offset-2">cloughie@gmail.com</a>.
               </p>
             </div>
           </div>

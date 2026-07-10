@@ -29,23 +29,36 @@ export default function PrivacyPage() {
           <h1 className="text-2xl font-semibold text-white">Your privacy matters</h1>
         </div>
         <p className="text-zinc-400 text-sm leading-relaxed mb-4">
-          DayOS is designed for personal reflection.
-        </p>
-        <p className="text-zinc-400 text-sm leading-relaxed mb-3">
-          Your conversations are processed privately and are not stored by DayOS.
-        </p>
-        <p className="text-zinc-400 text-sm leading-relaxed mb-10">
-          Saved memories are encrypted and securely stored in our database.
+          DayOS is designed for personal reflection. Here&apos;s exactly what we collect and why.
         </p>
 
-        <div className="mb-2">
+        {/* What we store */}
+        <div className="mb-6">
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">What we store</h2>
+          <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
+            {[
+              { label: 'Account', detail: 'Your email address and optional preferred name, used to sign in and personalise the app.' },
+              { label: 'Plans & memories', detail: 'Your saved daily plans and any memories you store are encrypted and securely stored in our database.' },
+              { label: 'Push notification token', detail: 'If you enable notifications, we store your device token and timezone to send your daily reminder.' },
+              { label: 'Usage events', detail: 'Basic events like opening the app, starting a check-in, or saving a plan — linked to your account, used only to power features like your streak.' },
+            ].map(({ label, detail }) => (
+              <div key={label} className="px-4 py-3.5">
+                <p className="text-sm font-medium text-zinc-200 mb-0.5">{label}</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{detail}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* What's private */}
+        <div className="mb-6">
           <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">What&apos;s private</h2>
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             {[
-              'Conversations are not stored by DayOS',
-              'Saved memories are encrypted and securely stored in our database',
+              'Conversations are sent to an AI model to generate responses but are not stored by DayOS after your session ends',
+              'Plans and memories are encrypted and securely stored',
               'We never sell your personal information',
-              'You can review and delete saved memories at any time',
+              'We don\'t track you across other apps or websites',
             ].map((item) => (
               <div key={item} className="flex items-start gap-3 px-4 py-3.5">
                 <span className="text-zinc-500 mt-px shrink-0">
@@ -56,6 +69,48 @@ export default function PrivacyPage() {
                 <p className="text-sm text-zinc-300 leading-relaxed">{item}</p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* Third-party services */}
+        <div className="mb-6">
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Third-party services</h2>
+          <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
+            {[
+              { name: 'Supabase', role: 'Account authentication and encrypted database storage.' },
+              { name: 'Anthropic (Claude) / OpenAI', role: 'AI providers that securely process your check-in conversations to generate responses. Conversations are not stored by DayOS.' },
+              { name: 'Apple Push Notification Service', role: 'Delivery of your daily reminder notification.' },
+            ].map(({ name, role }) => (
+              <div key={name} className="px-4 py-3.5">
+                <p className="text-sm font-medium text-zinc-200 mb-0.5">{name}</p>
+                <p className="text-sm text-zinc-400 leading-relaxed">{role}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Deletion & contact */}
+        <div className="mb-2">
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Deletion &amp; contact</h2>
+          <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
+            <div className="px-4 py-3.5">
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                You can delete individual memories and plans at any time from within the app.
+              </p>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm text-zinc-300 leading-relaxed">
+                To delete your account and all associated data, email{' '}
+                <a href="mailto:hi@dayos.app" className="text-white underline underline-offset-2">hi@dayos.app</a>.
+                We&apos;ll remove everything within 30 days.
+              </p>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Questions about privacy? Reach out at{' '}
+                <a href="mailto:hi@dayos.app" className="text-zinc-300 underline underline-offset-2">hi@dayos.app</a>.
+              </p>
+            </div>
           </div>
         </div>
       </div>

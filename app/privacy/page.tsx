@@ -89,9 +89,9 @@ export default function PrivacyPage() {
           </div>
         </div>
 
-        {/* Deletion & contact */}
-        <div className="mb-2">
-          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Deletion &amp; contact</h2>
+        {/* Account and data deletion */}
+        <div className="mb-6">
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Account and data deletion</h2>
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             <div className="px-4 py-3.5">
               <p className="text-sm text-zinc-300 leading-relaxed">
@@ -99,15 +99,24 @@ export default function PrivacyPage() {
               </p>
             </div>
             <div className="px-4 py-3.5">
-              <p className="text-sm text-zinc-300 leading-relaxed">
-                To delete your account and all associated data, email{' '}
-                <a href="mailto:cloughie@gmail.com" className="text-white underline underline-offset-2">cloughie@gmail.com</a>.
-                We&apos;ll process your request and delete your account and associated data within 30 days.
+              <p className="text-sm text-zinc-300 leading-relaxed mb-2">
+                To permanently delete your account and all associated DayOS data, go to:
+              </p>
+              <p className="text-sm font-medium text-zinc-200 mb-2">Settings → Delete account</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                The app shows a confirmation before deletion. Once confirmed, the account and associated data are permanently deleted, you are signed out, and returned to the authentication screen.
               </p>
             </div>
+          </div>
+        </div>
+
+        {/* Contact */}
+        <div className="mb-2">
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">Contact</h2>
+          <div className="bg-zinc-900 rounded-2xl">
             <div className="px-4 py-3.5">
               <p className="text-sm text-zinc-400 leading-relaxed">
-                Questions about privacy? Reach out at{' '}
+                Questions about privacy can be sent to{' '}
                 <a href="mailto:cloughie@gmail.com" className="text-zinc-300 underline underline-offset-2">cloughie@gmail.com</a>.
               </p>
             </div>

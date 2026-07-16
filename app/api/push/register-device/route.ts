@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { createAdminClient } from '@/lib/supabase/admin'
 
 // Called by the native iOS app after APNs registration.
 // Stores/updates the device's APNs token and enables push notifications for the user.
@@ -14,6 +15,14 @@ export async function POST(request: Request) {
     if (!apns_token || typeof apns_token !== 'string') {
       return NextResponse.json({ error: 'Missing apns_token' }, { status: 400 })
     }
+
+    // Remove this APNs token from any other user before upserting — prevents
+    // duplicate notifications when a device re-registers under a new account.
+    const adminClient = createAdminClient()
+    await adminClient.from('push_devices')
+      .delete()
+      .eq('apns_token', apns_token)
+      .neq('user_id', user.id)
 
     const { error: upsertError } = await supabase.from('push_devices').upsert({
       user_id: user.id,

@@ -82,7 +82,7 @@ export async function GET(request: Request) {
   if (!devices?.length) return NextResponse.json({ ok: true, sent: 0 })
 
   // ── Step 4: send, dispatch by platform ───────────────────────────────────
-  let sent = 0
+  const counts = { web: { attempted: 0, sent: 0, failed: 0 }, ios: { attempted: 0, sent: 0, failed: 0 } }
 
   for (const dev of devices) {
     try {
@@ -98,6 +98,7 @@ export async function GET(request: Request) {
         // ── Web Push ──────────────────────────────────────────────────────
         if (!dev.endpoint || !dev.p256dh || !dev.auth) continue
 
+        counts.web.attempted++
         await webpush.sendNotification(
           { endpoint: dev.endpoint, keys: { p256dh: dev.p256dh, auth: dev.auth } },
           JSON.stringify({ title: message.title, body: message.body, url: '/conversation' }),
@@ -106,9 +107,11 @@ export async function GET(request: Request) {
         // ── APNs ──────────────────────────────────────────────────────────
         if (!dev.apns_token) continue
 
+        counts.ios.attempted++
         const result = await sendApnsNotification(dev.apns_token, message.title, message.body)
 
         if (result === 'expired') {
+          counts.ios.failed++
           // Token is no longer valid — clean up the device row
           await supabase.from('push_devices').delete().eq('id', dev.id)
           const { count } = await supabase
@@ -123,7 +126,10 @@ export async function GET(request: Request) {
           continue
         }
 
-        if (result === 'error') continue
+        if (result === 'error') {
+          counts.ios.failed++
+          continue
+        }
       } else {
         continue
       }
@@ -138,7 +144,8 @@ export async function GET(request: Request) {
         })
         .eq('id', dev.id)
 
-      sent++
+      if (dev.platform === 'web') counts.web.sent++
+      else counts.ios.sent++
     } catch (err: unknown) {
       // Web Push throws on failure; catch 404/410 (expired subscription)
       const status = (err as { statusCode?: number })?.statusCode
@@ -153,12 +160,19 @@ export async function GET(request: Request) {
             .update({ push_notifications_enabled: false })
             .eq('id', dev.user_id)
         }
+        counts.web.failed++
       } else {
         console.error('[Push] Send error for device:', dev.id, 'user:', dev.user_id, err)
+        counts.web.failed++
       }
     }
   }
 
-  console.log(`[Push] Sent ${sent} notifications`)
-  return NextResponse.json({ ok: true, sent })
+  const sent = counts.web.sent + counts.ios.sent
+  console.log(
+    `[Push] web: ${counts.web.attempted} attempted, ${counts.web.sent} sent, ${counts.web.failed} failed` +
+    ` | ios: ${counts.ios.attempted} attempted, ${counts.ios.sent} sent, ${counts.ios.failed} failed` +
+    ` | total sent: ${sent}`,
+  )
+  return NextResponse.json({ ok: true, sent, counts })
 }

@@ -22,6 +22,9 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
   const [userId, setUserId] = useState<string | null>(null)
   const [modelPref, setModelPref] = useState<'claude' | 'openai'>('claude')
   const [isAdmin, setIsAdmin] = useState(false)
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [deleteBusy, setDeleteBusy] = useState(false)
 
   useEffect(() => {
     if (!isOpen) return
@@ -115,6 +118,29 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
     await supabase.auth.signOut()
     router.push('/auth/login')
     router.refresh()
+  }
+
+  async function handleDeleteAccount() {
+    if (deleteBusy) return
+    setDeleteBusy(true)
+    setDeleteError(null)
+    try {
+      const res = await fetch('/api/account/delete', { method: 'DELETE' })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        setDeleteError(body.error ?? 'Something went wrong. Please try again.')
+        return
+      }
+      // Sign out locally — auth user is already gone on the server
+      const supabase = createClient()
+      await supabase.auth.signOut()
+      router.push('/auth/login')
+      router.refresh()
+    } catch {
+      setDeleteError('Something went wrong. Please try again.')
+    } finally {
+      setDeleteBusy(false)
+    }
   }
 
   const version = process.env.NEXT_PUBLIC_APP_VERSION ?? '0.1.0'
@@ -242,13 +268,19 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
           </div>
         </div>
 
-        {/* Sign out */}
-        <div className="border-t border-zinc-800 pt-4 mb-1">
+        {/* Sign out + Delete account */}
+        <div className="border-t border-zinc-800 pt-4 mb-1 flex flex-col gap-2">
           <button
             onClick={handleLogout}
             className="w-full bg-zinc-800/50 text-red-400 rounded-xl px-4 py-3.5 font-medium text-sm hover:bg-zinc-700/50 active:bg-zinc-600/50 transition-colors text-left"
           >
             Sign out
+          </button>
+          <button
+            onClick={() => { setShowDeleteConfirm(true); setDeleteError(null) }}
+            className="w-full bg-zinc-800/50 text-zinc-500 rounded-xl px-4 py-3.5 font-medium text-sm hover:bg-zinc-700/50 active:bg-zinc-600/50 transition-colors text-left"
+          >
+            Delete account
           </button>
         </div>
 
@@ -259,6 +291,44 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
         >
           Cancel
         </button>
+
+        {/* Delete account confirmation sheet */}
+        {showDeleteConfirm && (
+          <>
+            <div className="fixed inset-0 bg-black/70 z-[55] backdrop-blur-sm pointer-events-none" aria-hidden="true" />
+            <div className="fixed inset-0 z-[60] flex items-end">
+              <div className="w-full bg-zinc-900 rounded-t-2xl border-t border-zinc-800 p-6 safe-bottom">
+                <div className="w-10 h-1 bg-zinc-700 rounded-full mx-auto mb-6" />
+
+                <h3 className="text-base font-bold text-white mb-2">Delete account?</h3>
+                <p className="text-sm text-zinc-400 mb-6 leading-relaxed">
+                  This permanently deletes your account and all associated DayOS data — including your plans, check-in history, and memories. This cannot be undone.
+                </p>
+
+                {deleteError && (
+                  <p className="text-xs text-red-400 mb-4">{deleteError}</p>
+                )}
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={handleDeleteAccount}
+                    disabled={deleteBusy}
+                    className={`w-full bg-red-600 text-white rounded-xl px-4 py-3.5 font-semibold text-sm transition-opacity ${deleteBusy ? 'opacity-50 pointer-events-none' : 'hover:bg-red-500 active:bg-red-700'}`}
+                  >
+                    {deleteBusy ? 'Deleting…' : 'Permanently delete my account'}
+                  </button>
+                  <button
+                    onClick={() => { setShowDeleteConfirm(false); setDeleteError(null) }}
+                    disabled={deleteBusy}
+                    className="w-full text-zinc-400 text-sm py-3 hover:text-zinc-200 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   )

@@ -232,6 +232,14 @@ function OnboardingFlow() {
               </p>
             </div>
 
+            {aiConsentChoice === false && (
+              <div className="mb-6 rounded-xl bg-zinc-900/60 px-3.5 py-3">
+                <p className="text-xs text-zinc-500 leading-relaxed">
+                  You chose not to share data with Anthropic. AI features will be off until you allow it — you can change this when you get into the app.
+                </p>
+              </div>
+            )}
+
             {error && (
               <div className="bg-red-950/50 border border-red-900 rounded-xl px-4 py-3 mb-4">
                 <p className="text-red-400 text-sm">{error}</p>

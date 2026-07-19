@@ -42,5 +42,6 @@ export type UserProfile = {
   onboarding_complete: boolean
   push_notifications_enabled: boolean
   push_notifications_permission_status: 'granted' | 'denied' | 'default'
+  ai_data_sharing_consent: boolean | null
   created_at: string
 }

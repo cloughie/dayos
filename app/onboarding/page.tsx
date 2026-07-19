@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
 import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
 
-type Step = 'name' | 'welcome'
+type Step = 'name' | 'ai_consent' | 'welcome'
 
 function OnboardingFlow() {
   const router = useRouter()
@@ -15,6 +15,7 @@ function OnboardingFlow() {
 
   const [step, setStep] = useState<Step>('name')
   const [preferredName, setPreferredName] = useState('')
+  const [aiConsentChoice, setAiConsentChoice] = useState<boolean | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showReminderModal, setShowReminderModal] = useState(false)
@@ -23,6 +24,16 @@ function OnboardingFlow() {
   function handleNameContinue(e: React.FormEvent) {
     e.preventDefault()
     if (!preferredName.trim()) return
+    setStep('ai_consent')
+  }
+
+  function handleConsentAllow() {
+    setAiConsentChoice(true)
+    setStep('welcome')
+  }
+
+  function handleConsentDecline() {
+    setAiConsentChoice(false)
     setStep('welcome')
   }
 
@@ -50,6 +61,7 @@ function OnboardingFlow() {
         email: user.email ?? '',
         preferred_name: preferredName.trim(),
         onboarding_complete: true,
+        ai_data_sharing_consent: aiConsentChoice ?? false,
       })
 
     if (upsertError) {
@@ -152,6 +164,53 @@ function OnboardingFlow() {
                 Continue
               </button>
             </form>
+          </div>
+        )}
+
+        {step === 'ai_consent' && (
+          <div>
+            <div className="mb-8">
+              <h2 className="text-2xl font-semibold text-white leading-snug mb-2">
+                Before we start
+              </h2>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                DayOS sends information to <span className="text-zinc-200 font-medium">Anthropic, PBC</span> — the company behind the Claude AI service — to generate responses during your check-ins.
+              </p>
+            </div>
+
+            <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800 mb-6">
+              {[
+                { label: 'Your messages', detail: 'What you type during a check-in conversation.' },
+                { label: 'Your preferred name', detail: 'Used so responses feel personal.' },
+                { label: 'Your saved memories', detail: 'Short summaries from previous sessions, so Claude can build on context.' },
+              ].map(({ label, detail }) => (
+                <div key={label} className="px-4 py-3.5">
+                  <p className="text-sm font-medium text-zinc-200 mb-0.5">{label}</p>
+                  <p className="text-sm text-zinc-400 leading-relaxed">{detail}</p>
+                </div>
+              ))}
+            </div>
+
+            <p className="text-xs text-zinc-500 leading-relaxed mb-8">
+              Nothing is sent until you tap Allow. If you decline, DayOS cannot generate AI responses.
+            </p>
+
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={handleConsentAllow}
+                className="w-full bg-white text-zinc-950 rounded-xl px-4 py-3 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+              >
+                Allow
+              </button>
+              <button
+                type="button"
+                onClick={handleConsentDecline}
+                className="w-full border border-zinc-700 text-zinc-400 rounded-xl px-4 py-3 text-sm hover:text-white hover:border-zinc-500 transition-colors"
+              >
+                Not Now
+              </button>
+            </div>
           </div>
         )}
 

@@ -55,7 +55,7 @@ export default function PrivacyPage() {
           <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">What&apos;s private</h2>
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             {[
-              'Conversations are sent to an AI model to generate responses but are not stored by DayOS after your session ends',
+              'Conversation messages are transmitted to Anthropic, PBC (Claude) to generate responses — DayOS does not store them after the session ends',
               'Plans and memories are encrypted and securely stored',
               'We never sell your personal information',
               'We don\'t track you across other apps or websites',
@@ -78,7 +78,7 @@ export default function PrivacyPage() {
           <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
             {[
               { name: 'Supabase', role: 'Account authentication and encrypted database storage.' },
-              { name: 'Anthropic (Claude) / OpenAI', role: 'AI providers that securely process your check-in conversations to generate responses. Conversations are not stored by DayOS.' },
+              { name: 'Anthropic, PBC (Claude)', role: 'Anthropic\'s Claude AI service processes your check-in messages to generate responses. See "How AI works in DayOS" below for the full list of what is transmitted and why.' },
               { name: 'Apple Push Notification Service', role: 'Delivery of your daily reminder notification.' },
             ].map(({ name, role }) => (
               <div key={name} className="px-4 py-3.5">
@@ -86,6 +86,64 @@ export default function PrivacyPage() {
                 <p className="text-sm text-zinc-400 leading-relaxed">{role}</p>
               </div>
             ))}
+          </div>
+        </div>
+
+        {/* How AI works in DayOS */}
+        <div className="mb-6">
+          <h2 className="text-xs font-semibold text-zinc-500 uppercase tracking-wider mb-3">How AI works in DayOS</h2>
+          <div className="bg-zinc-900 rounded-2xl divide-y divide-zinc-800">
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-zinc-200 mb-1">Who receives your data</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                DayOS uses the Claude AI service, provided by <span className="text-zinc-300">Anthropic, PBC</span> (anthropic.com). When you send a message, information is transmitted to Anthropic&apos;s servers to generate a response. DayOS does not use any other AI provider for conversation generation.
+              </p>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-zinc-200 mb-1">What is transmitted</p>
+              <p className="text-sm text-zinc-400 leading-relaxed mb-2">The following information is sent to Anthropic during a check-in:</p>
+              <ul className="space-y-1">
+                {[
+                  'Your messages and the AI\'s replies from the current conversation (up to 20 recent turns)',
+                  'Your preferred name, if you have set one',
+                  'Short summaries you have saved as memories, so responses can be personalised',
+                ].map(item => (
+                  <li key={item} className="flex items-start gap-2.5">
+                    <span className="text-zinc-600 mt-px shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    <p className="text-sm text-zinc-400">{item}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-zinc-200 mb-1">What is not transmitted</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Your email address, account identifier, push notification token, and device information are never sent to Anthropic.
+              </p>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-zinc-200 mb-1">Storage by DayOS</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                DayOS does not store the content of your conversations after your session ends. Your preferred name and memories are stored in DayOS&apos;s own encrypted database and are only transmitted to Anthropic to generate responses.
+              </p>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-zinc-200 mb-1">Your consent</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Before any information is sent to Anthropic, DayOS shows a disclosure screen listing exactly what is transmitted and asks for your permission. Nothing is sent until you tap Allow. If you decline, AI features are unavailable and no data is transmitted. You can review this consent at any time using the &ldquo;Review and Allow&rdquo; option shown when AI features are off.
+              </p>
+            </div>
+            <div className="px-4 py-3.5">
+              <p className="text-sm font-medium text-zinc-200 mb-1">Anthropic&apos;s privacy policy</p>
+              <p className="text-sm text-zinc-400 leading-relaxed">
+                Data transmitted to Anthropic is handled under Anthropic&apos;s own privacy policy and terms of service. You can review these at{' '}
+                <a href="https://www.anthropic.com/privacy" className="text-zinc-300 underline underline-offset-2">anthropic.com/privacy</a>.
+              </p>
+            </div>
           </div>
         </div>
 

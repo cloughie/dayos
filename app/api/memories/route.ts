@@ -84,6 +84,16 @@ export async function POST(request: Request) {
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
+    // Consent guard
+    const { data: cp } = await supabase
+      .from('user_profiles')
+      .select('ai_data_sharing_consent')
+      .eq('id', user.id)
+      .single()
+    if (!cp?.ai_data_sharing_consent) {
+      return NextResponse.json({ error: 'AI data sharing consent not granted.' }, { status: 403 })
+    }
+
     const { messages } = await request.json()
     if (!messages || messages.length < 2) {
       return NextResponse.json({ saved: 0, skipped: 0 })

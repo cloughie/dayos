@@ -221,6 +221,8 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const initialScrollDoneRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
+  const [aiConsent, setAiConsent] = useState<boolean | null>(null)
+  const [showConsentOverlay, setShowConsentOverlay] = useState(false)
   const [streak, setStreak] = useState<number | null>(null)
   const [checkedInDays, setCheckedInDays] = useState<string[]>([])
 
@@ -314,27 +316,32 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       })
       .catch(() => { /* keep localStorage value on network failure */ })
 
-    // Show push prompt once for existing users who haven't been asked yet
+    // Fetch profile: check AI consent and push prompt state
     ;(async () => {
-      const browserPerm = typeof Notification !== 'undefined' ? Notification.permission : 'granted'
-      if (browserPerm !== 'default') return
       const supabase = createClient()
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
       const { data: profile } = await supabase
         .from('user_profiles')
-        .select('push_notifications_enabled, has_seen_push_prompt')
+        .select('push_notifications_enabled, has_seen_push_prompt, ai_data_sharing_consent')
         .eq('id', user.id)
         .single()
-      if (profile && !profile.push_notifications_enabled && !profile.has_seen_push_prompt) {
+
+      // AI consent gate
+      const consent = profile?.ai_data_sharing_consent ?? null
+      setAiConsent(consent)
+      if (consent === null) {
+        setShowConsentOverlay(true)
+      } else if (consent === true && autoStart && !hasStoredMessages) {
+        startCheckIn()
+      }
+
+      // Push prompt — only for web users who haven't been asked
+      const browserPerm = typeof Notification !== 'undefined' ? Notification.permission : 'granted'
+      if (browserPerm === 'default' && profile && !profile.push_notifications_enabled && !profile.has_seen_push_prompt) {
         setShowPushPrompt(true)
       }
     })()
-
-    // First-time user arriving from onboarding — start check-in automatically
-    if (autoStart && !hasStoredMessages) {
-      startCheckIn()
-    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -475,6 +482,18 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     }
   }
 
+  async function saveConsent(value: boolean) {
+    const supabase = createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return
+    await supabase
+      .from('user_profiles')
+      .update({ ai_data_sharing_consent: value })
+      .eq('id', user.id)
+    setAiConsent(value)
+    setShowConsentOverlay(false)
+  }
+
   function savePlan(content: string, messageId: string) {
     const date = new Date().toISOString().split('T')[0]
     const plan: SavedPlan = {
@@ -529,7 +548,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: updatedMessages,
-            provider: localStorage.getItem('dayos_model_pref') ?? 'claude',
             source: 'sendMessage',
           }),
         })
@@ -625,7 +643,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           messages: initialHistory,
-          provider: localStorage.getItem('dayos_model_pref') ?? 'claude',
           source: 'startCheckIn',
         }),
       })
@@ -984,6 +1001,23 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         )}
       </div>
 
+      {/* AI consent blocked state — shown when user has declined */}
+      {aiConsent === false && !showConsentOverlay && (
+        <div className="absolute inset-0 z-20 backdrop-blur-[3px] bg-zinc-950/80 flex flex-col items-center justify-center text-center px-8">
+          <p className="text-white font-medium text-base mb-2">AI features unavailable</p>
+          <p className="text-zinc-400 text-sm leading-relaxed mb-6">
+            DayOS requires permission to send your check-in messages to Anthropic, PBC in order to generate responses. No data has been sent.
+          </p>
+          <button
+            type="button"
+            onClick={() => setShowConsentOverlay(true)}
+            className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+          >
+            Review and Allow
+          </button>
+        </div>
+      )}
+
       {/* New-day overlay — sits above scroll area + input bar, below header */}
       {showNewDayBanner && (
         <div className="absolute inset-0 z-20 backdrop-blur-[3px] bg-zinc-950/60 flex flex-col items-center justify-center text-center px-6">
@@ -999,6 +1033,56 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       )}
 
       </div>{/* /body wrapper */}
+
+      {/* AI consent overlay — shown when consent is null (not yet asked) or when reviewing after decline */}
+      {showConsentOverlay && (
+        <>
+          <div className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm" aria-hidden="true" />
+          <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-7 flex flex-col gap-5 max-w-sm mx-auto">
+            <div>
+              <h2 className="text-base font-semibold text-white mb-3">Before your first check-in</h2>
+              <p className="text-sm text-zinc-300 leading-relaxed mb-4">
+                DayOS sends information to <span className="text-zinc-200 font-medium">Anthropic, PBC</span> (Claude) to generate responses during your check-ins.
+              </p>
+              <div className="bg-zinc-800/60 rounded-xl divide-y divide-zinc-700/50 mb-4">
+                {[
+                  'Your messages during a conversation',
+                  'Your preferred name',
+                  'Your saved memories',
+                ].map(item => (
+                  <div key={item} className="flex items-start gap-2.5 px-3.5 py-2.5">
+                    <span className="text-zinc-500 mt-px shrink-0">
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <polyline points="20 6 9 17 4 12" />
+                      </svg>
+                    </span>
+                    <p className="text-sm text-zinc-300">{item}</p>
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-zinc-500 leading-relaxed">
+                Nothing is sent until you tap Allow. If you decline, DayOS cannot generate AI responses.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={() => saveConsent(true)}
+                className="w-full py-2.5 rounded-xl bg-white text-sm text-zinc-950 font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+              >
+                Allow
+              </button>
+              <button
+                type="button"
+                onClick={() => saveConsent(false)}
+                className="w-full py-2.5 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition-colors"
+              >
+                Not Now
+              </button>
+            </div>
+          </div>
+        </>
+      )}
 
       {/* Push prompt — shown once to existing users who haven't been asked */}
       {showPushPrompt && !isLoading && !started && (

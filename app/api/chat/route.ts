@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
-import OpenAI from 'openai'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/encryption'
@@ -34,7 +33,22 @@ async function loadMemoryContext(userId: string): Promise<string> {
 
 export async function POST(request: Request) {
   try {
-    const { messages, provider, source }: { messages: Message[]; provider?: string; source?: string } = await request.json()
+    const { messages, source }: { messages: Message[]; source?: string } = await request.json()
+
+    // Consent guard — authoritative check before any Anthropic call
+    {
+      const supabase = await createClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+      const { data: cp } = await supabase
+        .from('user_profiles')
+        .select('ai_data_sharing_consent')
+        .eq('id', user.id)
+        .single()
+      if (!cp?.ai_data_sharing_consent) {
+        return NextResponse.json({ error: 'AI data sharing consent not granted.' }, { status: 403 })
+      }
+    }
 
     let memoryContext = ''
     let preferredName = ''
@@ -65,23 +79,6 @@ export async function POST(request: Request) {
       console.log('[Chat] Messages sent to Claude:')
       if (systemPrompt) console.log('[Chat] system:', systemPrompt)
       history.forEach((m, i) => console.log(`[Chat] [${i}] ${m.role}:`, m.content))
-    }
-
-    if (provider === 'openai') {
-      if (!process.env.OPENAI_API_KEY) {
-        return NextResponse.json({ error: 'OpenAI API key not configured.' }, { status: 500 })
-      }
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-      const response = await openai.chat.completions.create({
-        model: 'gpt-4.1',
-        max_tokens: 1000,
-        messages: [
-          ...(systemPrompt ? [{ role: 'system' as const, content: systemPrompt }] : []),
-          ...history,
-        ],
-      })
-      const message = response.choices[0]?.message?.content ?? ''
-      return NextResponse.json({ message })
     }
 
     if (!process.env.ANTHROPIC_API_KEY) {

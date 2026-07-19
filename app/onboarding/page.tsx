@@ -174,7 +174,7 @@ function OnboardingFlow() {
                 Before we start
               </h2>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                DayOS sends information to <span className="text-zinc-200 font-medium">Anthropic, PBC</span> — the company behind the Claude AI service — to generate responses during your check-ins.
+                DayOS sends information to <span className="text-zinc-200 font-medium">Anthropic, PBC</span>, the company behind the Claude AI service, to generate responses during your check-ins.
               </p>
             </div>
 
@@ -228,14 +228,14 @@ function OnboardingFlow() {
 
             <div className="mb-8 rounded-xl bg-zinc-900/60 px-3.5 py-3">
               <p className="text-xs text-zinc-500 leading-relaxed">
-                We only save your plans and memories — and both are encrypted.
+                We only save your plans and memories. Both are encrypted.
               </p>
             </div>
 
             {aiConsentChoice === false && (
               <div className="mb-6 rounded-xl bg-zinc-900/60 px-3.5 py-3">
                 <p className="text-xs text-zinc-500 leading-relaxed">
-                  You chose not to share data with Anthropic. AI features will be off until you allow it — you can change this when you get into the app.
+                  You chose not to share data with Anthropic. AI features will be off until you allow it. You can change this when you get into the app.
                 </p>
               </div>
             )}

@@ -1040,7 +1040,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           <div className="fixed inset-0 bg-black/70 z-40 backdrop-blur-sm" aria-hidden="true" />
           <div className="fixed inset-x-4 top-1/2 -translate-y-1/2 z-50 bg-zinc-900 border border-zinc-800 rounded-2xl p-7 flex flex-col gap-5 max-w-sm mx-auto">
             <div>
-              <h2 className="text-base font-semibold text-white mb-3">Before your first check-in</h2>
+              <h2 className="text-base font-semibold text-white mb-3">Before we continue</h2>
               <p className="text-sm text-zinc-300 leading-relaxed mb-4">
                 DayOS sends information to <span className="text-zinc-200 font-medium">Anthropic, PBC</span> (Claude) to generate responses during your check-ins.
               </p>

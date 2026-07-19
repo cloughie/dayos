@@ -228,7 +228,7 @@ function OnboardingFlow() {
 
             <div className="mb-8 rounded-xl bg-zinc-900/60 px-3.5 py-3">
               <p className="text-xs text-zinc-500 leading-relaxed">
-                Your conversations aren&apos;t stored by DayOS after your session ends. Plans and memories are encrypted.
+                We only save your plans and memories — and both are encrypted.
               </p>
             </div>
 

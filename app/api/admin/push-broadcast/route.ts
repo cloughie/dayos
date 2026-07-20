@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import webpush from 'web-push'
 import { createClient } from '@/lib/supabase/server'
 import { createAdminClient } from '@/lib/supabase/admin'
+import { sendApnsNotification } from '@/lib/apns'
 
 const TITLE_MAX = 60
 const BODY_MAX = 140
@@ -58,11 +59,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ dryRun: !!dry_run, total: 0, sent: 0, failed: 0, expired: 0 })
   }
 
-  // Web-only broadcast (APNs broadcast is V2)
+  // ── Devices (all platforms) ───────────────────────────────────────────────
   const { data: devices } = await admin
     .from('push_devices')
-    .select('user_id, endpoint, p256dh, auth')
-    .eq('platform', 'web')
+    .select('id, user_id, platform, endpoint, p256dh, auth, apns_token')
     .in('user_id', enabledProfiles.map((p) => p.id))
 
   const total = devices?.length ?? 0
@@ -92,27 +92,59 @@ export async function POST(request: Request) {
 
   const message = { title, body: msgBody, url: notifUrl }
 
-  // ── Send ──────────────────────────────────────────────────────────────────
+  // ── Send (dispatch by platform, mirroring push/send/route.ts) ────────────
   let sent = 0
   let failed = 0
   let expired = 0
 
   for (const dev of devices!) {
     try {
-      await webpush.sendNotification(
-        { endpoint: dev.endpoint!, keys: { p256dh: dev.p256dh!, auth: dev.auth! } },
-        JSON.stringify(message),
-      )
-      sent++
+      if (dev.platform === 'web') {
+        if (!dev.endpoint || !dev.p256dh || !dev.auth) continue
+
+        await webpush.sendNotification(
+          { endpoint: dev.endpoint, keys: { p256dh: dev.p256dh, auth: dev.auth } },
+          JSON.stringify(message),
+        )
+        sent++
+      } else if (dev.platform === 'ios') {
+        if (!dev.apns_token) continue
+
+        const result = await sendApnsNotification(dev.apns_token, title, msgBody)
+
+        if (result === 'sent') {
+          sent++
+        } else if (result === 'expired') {
+          expired++
+          await admin.from('push_devices').delete().eq('id', dev.id)
+          const { count } = await admin
+            .from('push_devices')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', dev.user_id)
+          if ((count ?? 0) === 0) {
+            await admin.from('user_profiles')
+              .update({ push_notifications_enabled: false })
+              .eq('id', dev.user_id)
+          }
+        } else {
+          failed++
+          console.error('[AdminBroadcast] APNs error for user:', dev.user_id)
+        }
+      }
     } catch (err: unknown) {
       const status = (err as { statusCode?: number })?.statusCode
       if (status === 404 || status === 410) {
         expired++
-        await admin.from('push_devices').delete()
+        await admin.from('push_devices').delete().eq('id', dev.id)
+        const { count } = await admin
+          .from('push_devices')
+          .select('*', { count: 'exact', head: true })
           .eq('user_id', dev.user_id)
-          .eq('platform', 'web')
-        await admin.from('user_profiles')
-          .update({ push_notifications_enabled: false }).eq('id', dev.user_id)
+        if ((count ?? 0) === 0) {
+          await admin.from('user_profiles')
+            .update({ push_notifications_enabled: false })
+            .eq('id', dev.user_id)
+        }
       } else {
         failed++
         console.error('[AdminBroadcast] Send error for user:', dev.user_id, err)

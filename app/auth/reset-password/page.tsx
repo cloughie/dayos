@@ -1,12 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase/client'
 
 export default function ResetPasswordPage() {
-  const router = useRouter()
   const [password, setPassword] = useState('')
   const [confirmPassword, setConfirmPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -42,7 +40,11 @@ export default function ResetPasswordPage() {
       return
     }
 
-    // Password updated — session remains active, user stays authenticated.
+    // Sign out the Safari recovery session so the user is not silently left
+    // authenticated on the web. The password update has already succeeded, so
+    // we swallow any sign-out error rather than blocking the success screen.
+    await supabase.auth.signOut().catch(() => {})
+
     setSuccess(true)
     setIsLoading(false)
   }
@@ -59,15 +61,23 @@ export default function ResetPasswordPage() {
         {success ? (
           <div className="space-y-4">
             <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4">
-              <p className="text-white font-medium text-sm">Password updated successfully</p>
-              <p className="mt-1 text-zinc-400 text-sm">You&apos;re still signed in and ready to go.</p>
+              <p className="text-white font-medium text-sm">Password updated</p>
+              <p className="mt-1 text-zinc-400 text-sm">
+                Open DayOS from your home screen and sign in with your new password.
+              </p>
             </div>
-            <button
-              onClick={() => router.replace('/')}
-              className="w-full bg-white text-zinc-950 rounded-xl px-4 py-3 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-            >
-              Continue to DayOS
-            </button>
+            <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-center">
+              <p className="text-zinc-300 text-sm font-medium">Open DayOS</p>
+              <p className="mt-0.5 text-zinc-500 text-xs">Find the app on your home screen</p>
+            </div>
+            <div className="text-center">
+              <Link
+                href="/auth/login"
+                className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+              >
+                Continue on the web
+              </Link>
+            </div>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">

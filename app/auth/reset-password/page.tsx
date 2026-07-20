@@ -55,7 +55,7 @@ export default function ResetPasswordPage() {
         {/* Logo */}
         <div className="mb-10 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-white">DayOS</h1>
-          <p className="mt-2 text-zinc-400 text-sm">Set a new password</p>
+          {!success && <p className="mt-2 text-zinc-400 text-sm">Set a new password</p>}
         </div>
 
         {success ? (
@@ -69,7 +69,7 @@ export default function ResetPasswordPage() {
               </div>
               <h2 className="text-white text-lg font-semibold">Password updated successfully</h2>
               <p className="text-zinc-400 text-sm leading-relaxed">
-                If you normally use the DayOS iPhone app, return to it and sign in with your new password.
+                Your password has been changed. If you normally use the DayOS iPhone app, return to the app and sign in with your new password.
               </p>
             </div>
 

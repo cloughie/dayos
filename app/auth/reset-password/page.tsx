@@ -59,23 +59,30 @@ export default function ResetPasswordPage() {
         </div>
 
         {success ? (
-          <div className="space-y-4">
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-4">
-              <p className="text-white font-medium text-sm">Password updated</p>
-              <p className="mt-1 text-zinc-400 text-sm">
-                Open DayOS from your home screen and sign in with your new password.
+          <div className="space-y-6">
+            {/* Success confirmation */}
+            <div className="text-center space-y-2">
+              <div className="inline-flex items-center justify-center w-12 h-12 rounded-full bg-zinc-800 mb-2">
+                <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+              <h2 className="text-white text-lg font-semibold">Password updated successfully</h2>
+              <p className="text-zinc-400 text-sm leading-relaxed">
+                If you normally use the DayOS iPhone app, return to it and sign in with your new password.
               </p>
             </div>
-            <div className="bg-zinc-900 border border-zinc-700 rounded-xl px-4 py-3 text-center">
-              <p className="text-zinc-300 text-sm font-medium">Open DayOS</p>
-              <p className="mt-0.5 text-zinc-500 text-xs">Find the app on your home screen</p>
-            </div>
+
+            {/* Divider */}
+            <div className="border-t border-zinc-800" />
+
+            {/* Web fallback */}
             <div className="text-center">
               <Link
                 href="/auth/login"
-                className="text-sm text-zinc-400 hover:text-zinc-200 underline underline-offset-2"
+                className="text-sm text-zinc-400 hover:text-zinc-200 transition-colors"
               >
-                Continue on the web
+                Continue on the web instead
               </Link>
             </div>
           </div>

@@ -3,6 +3,16 @@ import { headers } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import Image from 'next/image'
+import type { Metadata } from 'next'
+
+const APP_STORE_APP_ID = '6788535707'
+const APP_STORE_URL = `https://apps.apple.com/app/id${APP_STORE_APP_ID}`
+
+export const metadata: Metadata = {
+  other: {
+    'apple-itunes-app': `app-id=${APP_STORE_APP_ID}, app-argument=https://trydayos.com/`,
+  },
+}
 
 export default async function HomePage() {
   const supabase = await createClient()
@@ -68,14 +78,27 @@ export default async function HomePage() {
 
           {/* CTA */}
           <div className="flex flex-col gap-3 pt-1">
-            <Link
-              href="/auth/signup"
-              className="inline-flex items-center justify-center bg-white text-zinc-950 rounded-xl px-6 py-3.5 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors w-full sm:w-auto sm:self-start"
-            >
-              Start Your Check-In
-            </Link>
+            <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+              {/* Primary: iOS App Store */}
+              <a
+                href={APP_STORE_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center bg-white text-zinc-950 rounded-xl px-6 py-3.5 font-semibold text-sm hover:bg-zinc-100 active:bg-zinc-200 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 w-full sm:w-auto"
+              >
+                Download for iOS
+              </a>
+
+              {/* Secondary: Web */}
+              <Link
+                href="/auth/signup"
+                className="inline-flex items-center justify-center border border-zinc-700 text-white rounded-xl px-6 py-3.5 font-semibold text-sm hover:border-zinc-500 hover:bg-zinc-900 active:bg-zinc-800 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-zinc-950 w-full sm:w-auto"
+              >
+                Continue on Web
+              </Link>
+            </div>
             <p className="text-xs text-zinc-500 sm:pl-0.5">
-              Best used in the morning. Save to your home screen for quick daily check-ins.
+              Available on iPhone, or continue instantly in your browser.
             </p>
           </div>
         </div>

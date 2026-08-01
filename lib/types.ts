@@ -6,7 +6,8 @@ export type Message = {
   hidden?: boolean
   // Display-only metadata for attached files (up to 4). Contains no binary —
   // filenames are stored locally for badges and are never transmitted to the server.
-  attachmentPreviews?: Array<{ type: 'image' | 'pdf'; name: string }>
+  // previewUrl is a session-only blob URL for image thumbnails; it is not persisted.
+  attachmentPreviews?: Array<{ type: 'image' | 'pdf'; name: string; previewUrl?: string }>
 }
 
 export type ConversationMode = 'checkin' | 'refine'

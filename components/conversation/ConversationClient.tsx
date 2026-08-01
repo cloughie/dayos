@@ -132,6 +132,29 @@ function stripUserLines(text: string): string {
     .trim()
 }
 
+// ─── Image thumbnail (session-only — falls back to icon if blob URL is dead) ─
+
+function ImageThumbnail({ src }: { src: string }) {
+  const [failed, setFailed] = useState(false)
+  if (failed) {
+    return (
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+        <rect x="3" y="3" width="18" height="18" rx="2" />
+        <circle cx="8.5" cy="8.5" r="1.5" />
+        <polyline points="21 15 16 10 5 21" />
+      </svg>
+    )
+  }
+  return (
+    <img
+      src={src}
+      alt=""
+      onError={() => setFailed(true)}
+      className="h-[72px] w-[72px] rounded-xl object-cover shrink-0"
+    />
+  )
+}
+
 // ─── Message bubble ────────────────────────────────────────────────────────
 
 const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
@@ -139,28 +162,38 @@ const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
     const isUser = message.role === 'user'
 
     if (isUser) {
+      const imagePreviews = message.attachmentPreviews?.filter(p => p.type === 'image') ?? []
+      const pdfPreviews = message.attachmentPreviews?.filter(p => p.type === 'pdf') ?? []
       return (
         <div ref={ref} className="flex justify-end mb-3">
           <div className="max-w-[80%] bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-3">
-            {message.attachmentPreviews && message.attachmentPreviews.length > 0 && (
-              <div className="flex flex-wrap gap-1.5 mb-2">
-                {message.attachmentPreviews.map((preview, i) => (
-                  <div key={i} className="flex items-center gap-1">
-                    {preview.type === 'image' ? (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                        <rect x="3" y="3" width="18" height="18" rx="2" />
-                        <circle cx="8.5" cy="8.5" r="1.5" />
-                        <polyline points="21 15 16 10 5 21" />
-                      </svg>
-                    ) : (
-                      <>
+            {imagePreviews.length > 0 && (
+              <div className="flex gap-2 mb-2 overflow-x-auto">
+                {imagePreviews.map((preview, i) => (
+                  <div key={i} className="shrink-0">
+                    {preview.previewUrl
+                      ? <ImageThumbnail src={preview.previewUrl} />
+                      : (
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
+                          <rect x="3" y="3" width="18" height="18" rx="2" />
+                          <circle cx="8.5" cy="8.5" r="1.5" />
+                          <polyline points="21 15 16 10 5 21" />
                         </svg>
-                        <span className="text-xs text-zinc-400 truncate max-w-[140px]">{preview.name}</span>
-                      </>
-                    )}
+                      )
+                    }
+                  </div>
+                ))}
+              </div>
+            )}
+            {pdfPreviews.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {pdfPreviews.map((preview, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span className="text-xs text-zinc-400 truncate max-w-[140px]">{preview.name}</span>
                   </div>
                 ))}
               </div>
@@ -679,7 +712,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       userContent: string,
       opts?: {
         // New attachments for this turn (from pendingAttachments, snapshotted by handleSend)
-        newAttachments?: Array<{ id: string; base64: string; mimeType: string; name: string; fileType: 'image' | 'pdf' }> | null
+        newAttachments?: Array<{ id: string; base64: string; mimeType: string; name: string; fileType: 'image' | 'pdf'; previewUrl?: string }> | null
         hidden?: boolean
       },
     ): Promise<boolean> => {
@@ -695,7 +728,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         ...(opts?.hidden ? { hidden: true } : {}),
         // Persist only display metadata — no binaries
         ...(newAtts && newAtts.length > 0
-          ? { attachmentPreviews: newAtts.map(a => ({ type: a.fileType, name: a.name })) }
+          ? { attachmentPreviews: newAtts.map(a => ({ type: a.fileType, name: a.name, ...(a.previewUrl ? { previewUrl: a.previewUrl } : {}) })) }
           : {}),
       }
 
@@ -896,15 +929,16 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       const succeeded = await sendMessage(
         trimmed,
         atts.length > 0
-          ? { newAttachments: atts.map(a => ({ id: a.id, base64: a.base64, mimeType: a.mimeType, name: a.name, fileType: a.fileType })) }
+          ? { newAttachments: atts.map(a => ({ id: a.id, base64: a.base64, mimeType: a.mimeType, name: a.name, fileType: a.fileType, previewUrl: a.previewUrl })) }
           : undefined,
       )
 
       // Always clear staged attachments after a send attempt that included them,
       // regardless of success or failure. On failure this breaks the retry loop
       // where the same images keep being re-sent and consistently failing.
+      // Note: blob URLs are NOT revoked here — they are kept alive so the image
+      // thumbnail remains visible in the sent message bubble for the session.
       if (atts.length > 0) {
-        atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
         setPendingAttachments([])
       }
     } finally {

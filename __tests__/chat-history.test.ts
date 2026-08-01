@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { buildHistory, normalizeRoles, type RawMessage, type HistoryItem } from '../lib/chat-history'
+import { buildHistory, normalizeRoles, type RawMessage, type HistoryItem, type AttachmentPayload } from '../lib/chat-history'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -110,10 +110,10 @@ describe('role ordering', () => {
   })
 })
 
-// ─── 3. Attachment applied to correct message; no carryover ─────────────────
+// ─── 3. Single attachment (backward-compatible array with 1 item) ────────────
 
-describe('attachment handling', () => {
-  const attachment = { messageId: 'u2', base64: 'fakebase64', mimeType: 'image/jpeg' }
+describe('single attachment (array API)', () => {
+  const attachment: AttachmentPayload = { messageId: 'u2', base64: 'fakebase64', mimeType: 'image/jpeg' }
 
   it('applies multimodal blocks to the matching message only', () => {
     const msgs = [
@@ -122,10 +122,9 @@ describe('attachment handling', () => {
       assistant('a2', 'I see the image'),
       user('u3', 'follow-up'),
     ]
-    const history = buildHistory(msgs, attachment)
+    const history = buildHistory(msgs, [attachment])
     const imgMsg = history.find(m => m.role === 'user' && Array.isArray(m.content))
     expect(imgMsg).toBeDefined()
-    expect(Array.isArray(imgMsg!.content)).toBe(true)
     const blocks = imgMsg!.content as Array<{ type: string }>
     expect(blocks[0].type).toBe('image')
     expect(blocks[1].type).toBe('text')
@@ -138,18 +137,15 @@ describe('attachment handling', () => {
       assistant('a2', 'I see it'),
       user('u3', 'next question'),
     ]
-    const history = buildHistory(msgs, attachment)
-    const plainUserMsgs = history.filter(
-      m => m.role === 'user' && !Array.isArray(m.content)
-    )
-    // u3 and c1 should be plain strings
+    const history = buildHistory(msgs, [attachment])
+    const plainUserMsgs = history.filter(m => m.role === 'user' && !Array.isArray(m.content))
     expect(plainUserMsgs.length).toBeGreaterThanOrEqual(1)
     plainUserMsgs.forEach(m => expect(typeof m.content).toBe('string'))
   })
 
   it('uses (attachment) text when user content is empty string', () => {
     const msgs = [user('u1', ''), assistant('a1', 'hi'), user('u2', '')]
-    const history = buildHistory(msgs, { messageId: 'u2', base64: 'b64', mimeType: 'image/png' })
+    const history = buildHistory(msgs, [{ messageId: 'u2', base64: 'b64', mimeType: 'image/png' }])
     const imgMsg = history.find(m => Array.isArray(m.content)) as { role: 'user'; content: Array<{ type: string; text?: string }> }
     expect(imgMsg).toBeDefined()
     const textBlock = imgMsg!.content.find(b => b.type === 'text')
@@ -157,14 +153,13 @@ describe('attachment handling', () => {
   })
 
   it('attachment not applied when messageId is not in the sliced window', () => {
-    // u_old is beyond the 20-message window; attachment should be ignored
-    const msgs = makeConversation(11) // 24 messages; u_old not in slice(-20)
-    const staleAttachment = { messageId: 'u1', base64: 'b64', mimeType: 'image/jpeg' }
-    const history = buildHistory(msgs, staleAttachment)
+    const msgs = makeConversation(11) // 24 messages; u1 not in slice(-20)
+    const staleAttachment: AttachmentPayload = { messageId: 'u1', base64: 'b64', mimeType: 'image/jpeg' }
+    const history = buildHistory(msgs, [staleAttachment])
     expect(history.every(m => !Array.isArray(m.content))).toBe(true)
   })
 
-  it('second attachment replaces first — first message reverts to plain text', () => {
+  it('second attachment group replaces first — first message reverts to plain text', () => {
     const msgs = [
       user('c1', 'checkin'), assistant('a0', 'hi'),
       user('u2', 'image 1 text'), assistant('a2', 'I see image 1'),
@@ -172,8 +167,8 @@ describe('attachment handling', () => {
       user('u4', 'follow-up'),
     ]
     // Active attachment is now image2 (u3); image1 (u2) should be plain text
-    const image2 = { messageId: 'u3', base64: 'img2base64', mimeType: 'image/jpeg' }
-    const history = buildHistory(msgs, image2)
+    const image2: AttachmentPayload = { messageId: 'u3', base64: 'img2base64', mimeType: 'image/jpeg' }
+    const history = buildHistory(msgs, [image2])
 
     const u2Entry = history.find(m => typeof m.content === 'string' && m.content === 'image 1 text')
     expect(u2Entry).toBeDefined()
@@ -182,82 +177,217 @@ describe('attachment handling', () => {
     const u3Entry = history.find(m => Array.isArray(m.content))
     expect(u3Entry).toBeDefined()
   })
+
+  it('undefined attachments is treated as no-op', () => {
+    const msgs = [user('u1', 'hi'), assistant('a1', 'hello')]
+    const history = buildHistory(msgs, undefined)
+    expect(history.every(m => !Array.isArray(m.content))).toBe(true)
+  })
+
+  it('empty attachments array is treated as no-op', () => {
+    const msgs = [user('u1', 'hi'), assistant('a1', 'hello')]
+    const history = buildHistory(msgs, [])
+    expect(history.every(m => !Array.isArray(m.content))).toBe(true)
+  })
 })
 
-// ─── 4. Active attachment state: only updated on success ────────────────────
+// ─── 4. Multiple attachments per message ────────────────────────────────────
 
-describe('activeAttachment state machine', () => {
-  // Model the sendMessage logic in isolation (no React, no fetch).
-  // activeAttachment is updated inside the try block after success.
+describe('multiple attachments per message', () => {
+  it('2 attachments on same message emit 2 media blocks + 1 text block', () => {
+    const msgs = [user('u1', 'look at both'), assistant('a1', 'I see them')]
+    const attachments: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'b1', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b2', mimeType: 'image/png' },
+    ]
+    const history = buildHistory(msgs, attachments)
+    const u1 = history.find(m => Array.isArray(m.content))
+    expect(u1).toBeDefined()
+    const blocks = u1!.content as Array<{ type: string }>
+    expect(blocks).toHaveLength(3) // 2 images + 1 text
+    expect(blocks[0].type).toBe('image')
+    expect(blocks[1].type).toBe('image')
+    expect(blocks[2].type).toBe('text')
+  })
 
-  type AttachmentState = { messageId: string; base64: string; mimeType: string } | null
+  it('3 attachments on same message emit 3 media blocks + 1 text block', () => {
+    const msgs = [user('u1', 'three files')]
+    const attachments: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'b1', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b2', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b3', mimeType: 'image/png' },
+    ]
+    const history = buildHistory(msgs, attachments)
+    const blocks = history[0].content as Array<{ type: string }>
+    expect(blocks).toHaveLength(4)
+    expect(blocks.filter(b => b.type === 'image')).toHaveLength(3)
+    expect(blocks[3].type).toBe('text')
+  })
+
+  it('4 attachments on same message emit 4 media blocks + 1 text block', () => {
+    const msgs = [user('u1', 'four files')]
+    const attachments: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'b1', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b2', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b3', mimeType: 'image/png' },
+      { messageId: 'u1', base64: 'b4', mimeType: 'image/webp' },
+    ]
+    const history = buildHistory(msgs, attachments)
+    const blocks = history[0].content as Array<{ type: string }>
+    expect(blocks).toHaveLength(5)
+    expect(blocks.filter(b => b.type === 'image')).toHaveLength(4)
+    expect(blocks[4].type).toBe('text')
+  })
+
+  it('mixed image and PDF attachments on same message', () => {
+    const msgs = [user('u1', 'image and pdf')]
+    const attachments: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'img', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'pdf', mimeType: 'application/pdf' },
+    ]
+    const history = buildHistory(msgs, attachments)
+    const blocks = history[0].content as Array<{ type: string }>
+    expect(blocks).toHaveLength(3)
+    expect(blocks[0].type).toBe('image')
+    expect(blocks[1].type).toBe('document')
+    expect(blocks[2].type).toBe('text')
+  })
+
+  it('attachments on different messages each get their own blocks', () => {
+    const msgs = [
+      user('u1', 'first'),
+      assistant('a1', 'ok'),
+      user('u2', 'second'),
+    ]
+    const attachments: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'img1', mimeType: 'image/jpeg' },
+      { messageId: 'u2', base64: 'img2', mimeType: 'image/png' },
+    ]
+    const history = buildHistory(msgs, attachments)
+    const multimodalMsgs = history.filter(m => Array.isArray(m.content))
+    expect(multimodalMsgs).toHaveLength(2)
+    for (const m of multimodalMsgs) {
+      const blocks = m.content as Array<{ type: string }>
+      expect(blocks[blocks.length - 1].type).toBe('text')
+    }
+  })
+
+  it('group replacement: new group on u3, u2 falls back to plain text', () => {
+    const msgs = [
+      user('c1', 'checkin'), assistant('a0', 'hi'),
+      user('u2', 'first group'), assistant('a2', 'reply'),
+      user('u3', 'second group'), assistant('a3', 'reply'),
+      user('u4', 'follow-up'),
+    ]
+    // Active attachments now point to u3; u2 should be plain text
+    const group2: AttachmentPayload[] = [
+      { messageId: 'u3', base64: 'img2a', mimeType: 'image/jpeg' },
+      { messageId: 'u3', base64: 'img2b', mimeType: 'image/png' },
+    ]
+    const history = buildHistory(msgs, group2)
+
+    const u2 = history.find(m => typeof m.content === 'string' && m.content === 'first group')
+    expect(u2).toBeDefined()
+
+    const u3 = history.find(m => Array.isArray(m.content))
+    expect(u3).toBeDefined()
+    const blocks = u3!.content as Array<{ type: string }>
+    expect(blocks.filter(b => b.type === 'image')).toHaveLength(2)
+  })
+
+  it('attachments beyond the 20-message window are silently ignored', () => {
+    const msgs = makeConversation(11) // 24 messages; u1 not in slice(-20)
+    const staleGroup: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'b1', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b2', mimeType: 'image/png' },
+    ]
+    const history = buildHistory(msgs, staleGroup)
+    expect(history.every(m => !Array.isArray(m.content))).toBe(true)
+  })
+
+  it('(attachment) placeholder used when content is empty with multiple attachments', () => {
+    const msgs = [user('u1', '')]
+    const attachments: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'b1', mimeType: 'image/jpeg' },
+      { messageId: 'u1', base64: 'b2', mimeType: 'image/png' },
+    ]
+    const history = buildHistory(msgs, attachments)
+    const blocks = history[0].content as Array<{ type: string; text?: string }>
+    const textBlock = blocks.find(b => b.type === 'text')
+    expect(textBlock?.text).toBe('(attachment)')
+  })
+})
+
+// ─── 5. activeAttachment state machine ──────────────────────────────────────
+
+describe('activeAttachments state machine', () => {
+  type AttGroup = Array<{ messageId: string; base64: string; mimeType: string }> | null
 
   function simulateSend(
-    currentActive: AttachmentState,
-    newAtt: { base64: string; mimeType: string } | null,
+    currentActive: AttGroup,
+    newAtts: Array<{ base64: string; mimeType: string }> | null,
     messageId: string,
     succeeds: boolean,
-  ): AttachmentState {
-    // This mirrors the fixed sendMessage logic:
-    //   setActiveAttachment is inside try, only called when succeeded=true
-    if (succeeds && newAtt) {
-      return { messageId, base64: newAtt.base64, mimeType: newAtt.mimeType }
+  ): AttGroup {
+    if (succeeds && newAtts && newAtts.length > 0) {
+      return newAtts.map(a => ({ messageId, base64: a.base64, mimeType: a.mimeType }))
     }
-    // On failure, or when no new attachment, activeAttachment is unchanged
     return currentActive
   }
 
-  it('successful send with new attachment updates active attachment', () => {
-    const result = simulateSend(null, { base64: 'img1', mimeType: 'image/jpeg' }, 'msg1', true)
-    expect(result).toEqual({ messageId: 'msg1', base64: 'img1', mimeType: 'image/jpeg' })
+  it('successful send with new attachments updates active group', () => {
+    const result = simulateSend(null, [{ base64: 'img1', mimeType: 'image/jpeg' }], 'msg1', true)
+    expect(result).toEqual([{ messageId: 'msg1', base64: 'img1', mimeType: 'image/jpeg' }])
   })
 
-  it('failed send with new attachment does NOT update active attachment', () => {
-    const prev: AttachmentState = { messageId: 'prev', base64: 'img0', mimeType: 'image/jpeg' }
-    const result = simulateSend(prev, { base64: 'img1', mimeType: 'image/jpeg' }, 'msg1', false)
-    // Active attachment must remain unchanged
+  it('successful send with 2 attachments stores both in active group', () => {
+    const result = simulateSend(
+      null,
+      [{ base64: 'img1', mimeType: 'image/jpeg' }, { base64: 'img2', mimeType: 'image/png' }],
+      'msg1',
+      true,
+    )
+    expect(result).toHaveLength(2)
+    expect(result![0].messageId).toBe('msg1')
+    expect(result![1].messageId).toBe('msg1')
+  })
+
+  it('failed send with new attachments does NOT update active group', () => {
+    const prev: AttGroup = [{ messageId: 'prev', base64: 'img0', mimeType: 'image/jpeg' }]
+    const result = simulateSend(prev, [{ base64: 'img1', mimeType: 'image/jpeg' }], 'msg1', false)
     expect(result).toEqual(prev)
   })
 
-  it('failed send preserves null active attachment', () => {
-    const result = simulateSend(null, { base64: 'img1', mimeType: 'image/jpeg' }, 'msg1', false)
+  it('failed send preserves null active group', () => {
+    const result = simulateSend(null, [{ base64: 'img1', mimeType: 'image/jpeg' }], 'msg1', false)
     expect(result).toBeNull()
   })
 
-  it('text message send (no new attachment) never changes active attachment', () => {
-    const prev: AttachmentState = { messageId: 'u2', base64: 'img1', mimeType: 'image/jpeg' }
+  it('text message send (no new attachments) never changes active group', () => {
+    const prev: AttGroup = [{ messageId: 'u2', base64: 'img1', mimeType: 'image/jpeg' }]
     const successResult = simulateSend(prev, null, 'u3', true)
     const failResult = simulateSend(prev, null, 'u3', false)
     expect(successResult).toEqual(prev)
     expect(failResult).toEqual(prev)
   })
 
-  it('subsequent text messages after a failed attachment use old active attachment', () => {
-    const image1: AttachmentState = { messageId: 'u2', base64: 'img1', mimeType: 'image/jpeg' }
+  it('retrying a failed multi-attachment send succeeds and updates group', () => {
+    const group1: AttGroup = [{ messageId: 'u2', base64: 'img1', mimeType: 'image/jpeg' }]
+    const group2 = [{ base64: 'img2a', mimeType: 'image/jpeg' }, { base64: 'img2b', mimeType: 'image/png' }]
 
-    // Turn: image2 fails — active attachment stays as image1
-    const afterFailedImage2 = simulateSend(image1, { base64: 'img2', mimeType: 'image/jpeg' }, 'u3', false)
-    expect(afterFailedImage2).toEqual(image1)
+    // First attempt fails
+    const afterFail = simulateSend(group1, group2, 'u3', false)
+    expect(afterFail).toEqual(group1) // unchanged
 
-    // Turn: plain text succeeds — active attachment still image1 (no new attachment)
-    const afterText = simulateSend(afterFailedImage2, null, 'u4', true)
-    expect(afterText).toEqual(image1)
-  })
-
-  it('retrying a failed attachment succeeds and updates active attachment', () => {
-    const image1: AttachmentState = { messageId: 'u2', base64: 'img1', mimeType: 'image/jpeg' }
-
-    // First attempt: image2 fails
-    const afterFail = simulateSend(image1, { base64: 'img2', mimeType: 'image/jpeg' }, 'u3', false)
-    expect(afterFail).toEqual(image1) // unchanged
-
-    // Retry: image2 succeeds
-    const afterRetry = simulateSend(afterFail, { base64: 'img2', mimeType: 'image/jpeg' }, 'u5', true)
-    expect(afterRetry).toEqual({ messageId: 'u5', base64: 'img2', mimeType: 'image/jpeg' })
+    // Retry succeeds
+    const afterRetry = simulateSend(afterFail, group2, 'u5', true)
+    expect(afterRetry).toHaveLength(2)
+    expect(afterRetry![0].messageId).toBe('u5')
+    expect(afterRetry![1].messageId).toBe('u5')
   })
 })
 
-// ─── 5. normalizeRoles: defensive role deduplication ────────────────────────
+// ─── 6. normalizeRoles: defensive role deduplication ────────────────────────
 
 describe('normalizeRoles', () => {
   it('is a no-op for already-alternating history', () => {

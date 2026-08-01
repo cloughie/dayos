@@ -7,7 +7,7 @@ import { buildHistory } from '@/lib/chat-history'
 
 // Attachment carried from the client for a single conversation turn.
 // Only the binary (base64 + mimeType) and the message ID arrive here —
-// the filename is kept client-side and never transmitted.
+// filenames are kept client-side and never transmitted.
 type AttachmentPayload = {
   messageId: string
   base64: string
@@ -45,9 +45,9 @@ export async function POST(request: Request) {
   try {
     const {
       messages,
-      attachment,
+      attachments,
       source,
-    }: { messages: Message[]; attachment?: AttachmentPayload; source?: string } = await request.json()
+    }: { messages: Message[]; attachments?: AttachmentPayload[]; source?: string } = await request.json()
 
     // Consent guard — authoritative check before any Anthropic call
     {
@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       console.error('[Memory] Failed to load memories:', err)
     }
 
-    const history = buildHistory(messages, attachment)
+    const history = buildHistory(messages, attachments)
 
     const nameContext = preferredName ? `User preferred name: ${preferredName}` : ''
     const systemPrompt = [nameContext, memoryContext].filter(Boolean).join('\n\n')

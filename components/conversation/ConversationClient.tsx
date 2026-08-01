@@ -19,7 +19,7 @@ import {
   compressImage,
   readPdfAsBase64,
   getFileType,
-  estimateRequestBytes,
+  estimateCombinedRequestBytes,
   REQUEST_BUDGET_BYTES,
 } from '@/lib/attachments'
 
@@ -143,21 +143,25 @@ const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
       return (
         <div ref={ref} className="flex justify-end mb-3">
           <div className="max-w-[80%] bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-3">
-            {message.attachmentPreview && (
-              <div className="flex items-center gap-1.5 mb-2">
-                {message.attachmentPreview.type === 'image' ? (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                    <rect x="3" y="3" width="18" height="18" rx="2" />
-                    <circle cx="8.5" cy="8.5" r="1.5" />
-                    <polyline points="21 15 16 10 5 21" />
-                  </svg>
-                ) : (
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                    <polyline points="14 2 14 8 20 8" />
-                  </svg>
-                )}
-                <span className="text-xs text-zinc-400 truncate max-w-[180px]">{message.attachmentPreview.name}</span>
+            {message.attachmentPreviews && message.attachmentPreviews.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 mb-2">
+                {message.attachmentPreviews.map((preview, i) => (
+                  <div key={i} className="flex items-center gap-1">
+                    {preview.type === 'image' ? (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                        <rect x="3" y="3" width="18" height="18" rx="2" />
+                        <circle cx="8.5" cy="8.5" r="1.5" />
+                        <polyline points="21 15 16 10 5 21" />
+                      </svg>
+                    ) : (
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                        <polyline points="14 2 14 8 20 8" />
+                      </svg>
+                    )}
+                    <span className="text-xs text-zinc-400 truncate max-w-[140px]">{preview.name}</span>
+                  </div>
+                ))}
               </div>
             )}
             <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
@@ -249,23 +253,27 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const [checkedInDays, setCheckedInDays] = useState<string[]>([])
 
   // ── Attachment state ────────────────────────────────────────────────────────
-  // pendingAttachment: ephemeral composing state — cleared on send/cancel, never serialised.
-  // previewUrl is a revocable blob: URL used only for the thumbnail in the input area.
-  const [pendingAttachment, setPendingAttachment] = useState<{
+  // pendingAttachments: ephemeral composing state — up to 4 attachments per message.
+  // Each has a local id for targeted removal. previewUrl is a revocable blob URL
+  // for image thumbnails only. Never serialised to localStorage or Supabase.
+  type PendingAttachment = {
+    id: string
     base64: string
     mimeType: string
     name: string
     fileType: 'image' | 'pdf'
     previewUrl: string
-  } | null>(null)
-  // activeAttachment: the most recently sent attachment binary, kept in session memory
-  // so follow-up turns can reference it. Replaced when a new attachment is sent.
-  // Never persisted to localStorage or Supabase.
-  const [activeAttachment, setActiveAttachment] = useState<{
+  }
+  // activeAttachments: the most recently sent group, kept in session memory so
+  // follow-up turns can reference the same binaries. Replaced as a group when a
+  // new set is sent. Never persisted to localStorage or Supabase.
+  type StoredAttachment = {
     messageId: string
     base64: string
     mimeType: string
-  } | null>(null)
+  }
+  const [pendingAttachments, setPendingAttachments] = useState<PendingAttachment[]>([])
+  const [activeAttachments, setActiveAttachments] = useState<StoredAttachment[]>([])
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   // Computed synchronously — pure date math, no network needed.
@@ -465,6 +473,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     setNewCheckInConfirm(false)
     setShowNewDayBanner(false)
     setStarted(false)
+    pendingAttachments.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
+    setPendingAttachments([])
+    setActiveAttachments([])
+    setAttachmentError(null)
     requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
   }
 
@@ -476,6 +488,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     setNewCheckInConfirm(false)
     setShowNewDayBanner(false)
     setStarted(false)
+    pendingAttachments.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
+    setPendingAttachments([])
+    setActiveAttachments([])
+    setAttachmentError(null)
     startNewDayRef.current = true
   }
 
@@ -540,58 +556,75 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
   // ─── Attachment handlers ───────────────────────────────────────────────────
 
+  const MAX_ATTACHMENTS = 4
+
   async function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0]
-    // Reset so the same file can be re-selected after cancellation
+    const files = Array.from(e.target.files ?? [])
+    // Reset so the same file can be re-selected
     e.target.value = ''
-    if (!file) return
+    if (files.length === 0) return
 
     setAttachmentError(null)
 
-    const validation = validateFile(file)
-    if (!validation.ok) {
-      setAttachmentError(validation.error.message)
+    // How many slots remain?
+    const remaining = MAX_ATTACHMENTS - pendingAttachments.length
+    if (remaining <= 0) {
+      setAttachmentError(`You can attach up to ${MAX_ATTACHMENTS} files per message.`)
       return
     }
+    const toProcess = files.slice(0, remaining)
 
-    // Revoke previous pending preview URL before replacing
-    if (pendingAttachment?.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl)
+    const newAttachments: typeof pendingAttachments = []
 
-    const fileType = getFileType(file)!
-
-    if (fileType === 'image') {
-      try {
-        const { base64, mimeType } = await compressImage(file)
-        if (estimateRequestBytes(base64) > REQUEST_BUDGET_BYTES) {
-          setAttachmentError('Image is too large to send even after compression.')
-          return
-        }
-        // Object URL for thumbnail display — revoked on send or cancel
-        const previewUrl = URL.createObjectURL(file)
-        setPendingAttachment({ base64, mimeType, name: file.name, fileType: 'image', previewUrl })
-      } catch {
-        setAttachmentError('Could not process this image. Try a different file.')
+    for (const file of toProcess) {
+      const validation = validateFile(file)
+      if (!validation.ok) {
+        setAttachmentError(validation.error.message)
+        continue
       }
-    } else {
-      // PDF — read as-is (already validated under size limit)
-      try {
-        const base64 = await readPdfAsBase64(file)
-        if (estimateRequestBytes(base64) > REQUEST_BUDGET_BYTES) {
-          setAttachmentError(
-            'This PDF is too large to attach. Choose a smaller file or attach screenshots of the relevant pages.',
-          )
-          return
+
+      const fileType = getFileType(file)!
+
+      if (fileType === 'image') {
+        try {
+          const { base64, mimeType } = await compressImage(file)
+          // Check combined budget with everything so far
+          const allBase64 = [...pendingAttachments, ...newAttachments].map(a => a.base64).concat(base64)
+          if (estimateCombinedRequestBytes(allBase64) > REQUEST_BUDGET_BYTES) {
+            setAttachmentError('Combined attachments are too large to send. Remove one or use smaller files.')
+            break
+          }
+          const previewUrl = URL.createObjectURL(file)
+          newAttachments.push({ id: crypto.randomUUID(), base64, mimeType, name: file.name, fileType: 'image', previewUrl })
+        } catch {
+          setAttachmentError('Could not process this image. Try a different file.')
         }
-        setPendingAttachment({ base64, mimeType: 'application/pdf', name: file.name, fileType: 'pdf', previewUrl: '' })
-      } catch {
-        setAttachmentError('Could not read this PDF. Try a different file.')
+      } else {
+        try {
+          const base64 = await readPdfAsBase64(file)
+          const allBase64 = [...pendingAttachments, ...newAttachments].map(a => a.base64).concat(base64)
+          if (estimateCombinedRequestBytes(allBase64) > REQUEST_BUDGET_BYTES) {
+            setAttachmentError('Combined attachments are too large to send. Remove one or use smaller files.')
+            break
+          }
+          newAttachments.push({ id: crypto.randomUUID(), base64, mimeType: 'application/pdf', name: file.name, fileType: 'pdf', previewUrl: '' })
+        } catch {
+          setAttachmentError('Could not read this PDF. Try a different file.')
+        }
       }
+    }
+
+    if (newAttachments.length > 0) {
+      setPendingAttachments(prev => [...prev, ...newAttachments])
     }
   }
 
-  function handleCancelAttachment() {
-    if (pendingAttachment?.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl)
-    setPendingAttachment(null)
+  function handleRemoveAttachment(id: string) {
+    setPendingAttachments(prev => {
+      const att = prev.find(a => a.id === id)
+      if (att?.previewUrl) URL.revokeObjectURL(att.previewUrl)
+      return prev.filter(a => a.id !== id)
+    })
     setAttachmentError(null)
   }
 
@@ -635,14 +668,14 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     async (
       userContent: string,
       opts?: {
-        // New attachment for this turn (from pendingAttachment, snapshotted by handleSend)
-        newAttachment?: { base64: string; mimeType: string; name: string; fileType: 'image' | 'pdf' } | null
+        // New attachments for this turn (from pendingAttachments, snapshotted by handleSend)
+        newAttachments?: Array<{ id: string; base64: string; mimeType: string; name: string; fileType: 'image' | 'pdf' }> | null
         hidden?: boolean
       },
     ): Promise<boolean> => {
       if (isLoading) return false
 
-      const newAtt = opts?.newAttachment ?? null
+      const newAtts = opts?.newAttachments ?? null
 
       const userMessage: Message = {
         id: crypto.randomUUID(),
@@ -650,8 +683,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         content: userContent,
         created_at: new Date().toISOString(),
         ...(opts?.hidden ? { hidden: true } : {}),
-        // Persist only display metadata — no binary
-        ...(newAtt ? { attachmentPreview: { type: newAtt.fileType, name: newAtt.name } } : {}),
+        // Persist only display metadata — no binaries
+        ...(newAtts && newAtts.length > 0
+          ? { attachmentPreviews: newAtts.map(a => ({ type: a.fileType, name: a.name })) }
+          : {}),
       }
 
       const updatedMessages = [...messages, userMessage]
@@ -659,14 +694,14 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       setIsLoading(true)
       setInput('')
 
-      // Determine which attachment binary goes to the API this turn:
-      // - New attachment → becomes the active attachment going forward
-      // - No new attachment → carry forward the existing active attachment (follow-up turn)
-      const apiAttachment = newAtt
-        ? { messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType }
-        : activeAttachment
-        ? { ...activeAttachment }
-        : null
+      // Determine which attachment binaries go to the API this turn:
+      // - New attachments → replace the active group for this and future turns
+      // - No new attachments → carry forward the existing active group (follow-up turn)
+      const apiAttachments: Array<{ messageId: string; base64: string; mimeType: string }> = newAtts && newAtts.length > 0
+        ? newAtts.map(a => ({ messageId: userMessage.id, base64: a.base64, mimeType: a.mimeType }))
+        : activeAttachments.length > 0
+        ? activeAttachments.map(a => ({ ...a }))
+        : []
 
       let succeeded = false
       try {
@@ -675,7 +710,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: updatedMessages,
-            ...(apiAttachment ? { attachment: apiAttachment } : {}),
+            ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
             source: 'sendMessage',
           }),
         })
@@ -696,11 +731,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         hapticLight()
         setMessages(finalMessages)
 
-        // Update active attachment only on success. Moving this inside the try block
-        // prevents a failed send from poisoning subsequent requests: if the API call
-        // fails, activeAttachment remains unchanged so the next turn is unaffected.
-        if (newAtt) {
-          setActiveAttachment({ messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType })
+        // Update active attachments only on success. Keeping this inside the try block
+        // prevents a failed send from poisoning subsequent requests.
+        if (newAtts && newAtts.length > 0) {
+          setActiveAttachments(newAtts.map(a => ({ messageId: userMessage.id, base64: a.base64, mimeType: a.mimeType })))
         }
 
         succeeded = true
@@ -741,7 +775,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       }
       return succeeded
     },
-    [isLoading, messages, activeAttachment]
+    [isLoading, messages, activeAttachments]
   )
 
   // ─── Handle send ──────────────────────────────────────────────────────────
@@ -834,21 +868,23 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
   async function handleSend() {
     const trimmed = input.trim()
-    if ((!trimmed && !pendingAttachment) || isLoading) return
+    if ((!trimmed && pendingAttachments.length === 0) || isLoading) return
     hapticLight()
 
-    // Snapshot pending attachment — clear only after a successful send
-    const att = pendingAttachment
+    // Snapshot pending attachments — clear only after a successful send
+    const atts = pendingAttachments
     setAttachmentError(null)
 
     const succeeded = await sendMessage(
       trimmed,
-      att ? { newAttachment: { base64: att.base64, mimeType: att.mimeType, name: att.name, fileType: att.fileType } } : undefined,
+      atts.length > 0
+        ? { newAttachments: atts.map(a => ({ id: a.id, base64: a.base64, mimeType: a.mimeType, name: a.name, fileType: a.fileType })) }
+        : undefined,
     )
 
-    if (succeeded && att) {
-      if (att.previewUrl) URL.revokeObjectURL(att.previewUrl)
-      setPendingAttachment(null)
+    if (succeeded && atts.length > 0) {
+      atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
+      setPendingAttachments([])
     }
   }
 
@@ -1111,34 +1147,41 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           /* ── Normal input mode ── */
           <div className="flex flex-col gap-2">
             {/* Attachment preview row */}
-            {pendingAttachment && (
-              <div className="flex items-center gap-2 px-1">
-                {pendingAttachment.fileType === 'image' ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={pendingAttachment.previewUrl}
-                    alt=""
-                    className="h-14 w-14 rounded-lg object-cover shrink-0 border border-zinc-700"
-                  />
-                ) : (
-                  <div className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2.5 py-1.5 shrink-0">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
-                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                      <polyline points="14 2 14 8 20 8" />
-                    </svg>
-                    <span className="text-xs text-zinc-300 max-w-[140px] truncate">{pendingAttachment.name}</span>
+            {pendingAttachments.length > 0 && (
+              <div className="flex items-center gap-2 px-1 flex-wrap">
+                {pendingAttachments.map(att => (
+                  <div key={att.id} className="relative shrink-0">
+                    {att.fileType === 'image' ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={att.previewUrl}
+                        alt=""
+                        className="h-14 w-14 rounded-lg object-cover border border-zinc-700"
+                      />
+                    ) : (
+                      <div className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2.5 py-1.5">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span className="text-xs text-zinc-300 max-w-[120px] truncate">{att.name}</span>
+                      </div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveAttachment(att.id)}
+                      className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center rounded-full bg-zinc-600 text-zinc-200 hover:bg-zinc-500 transition-colors"
+                      aria-label="Remove attachment"
+                    >
+                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                      </svg>
+                    </button>
                   </div>
+                ))}
+                {pendingAttachments.length > 1 && (
+                  <span className="text-xs text-zinc-500 self-end pb-0.5">{pendingAttachments.length} of {MAX_ATTACHMENTS}</span>
                 )}
-                <button
-                  type="button"
-                  onClick={handleCancelAttachment}
-                  className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition-colors shrink-0"
-                  aria-label="Remove attachment"
-                >
-                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
-                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
               </div>
             )}
 
@@ -1152,7 +1195,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
               <button
                 type="button"
                 onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading || showNewDayBanner}
+                disabled={isLoading || showNewDayBanner || pendingAttachments.length >= MAX_ATTACHMENTS}
                 className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
                 aria-label="Attach image or PDF"
               >
@@ -1161,10 +1204,11 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
                 </svg>
               </button>
 
-              {/* Hidden file input */}
+              {/* Hidden file input — multiple allows selecting several files at once */}
               <input
                 ref={fileInputRef}
                 type="file"
+                multiple
                 accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
                 className="hidden"
                 onChange={handleAttachmentSelect}
@@ -1203,7 +1247,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={isLoading || showNewDayBanner || (!input.trim() && !pendingAttachment)}
+                disabled={isLoading || showNewDayBanner || (!input.trim() && pendingAttachments.length === 0)}
                 className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
                 aria-label="Send message"
               >

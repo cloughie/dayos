@@ -23,13 +23,14 @@ export type HistoryItem =
  * - Slices to the last 20 messages.
  * - Trims from the front to the first user message so the history never
  *   starts with an assistant role (Anthropic rejects that with a 400).
- * - Applies multimodal content blocks to the single message that matches
- *   the active attachment's messageId; all others remain plain text.
+ * - For each user message that matches an attachment's messageId, emits
+ *   multimodal content blocks (one per attachment) followed by the text block.
+ *   All other messages remain plain text.
  * - Removes consecutive duplicate roles as a defensive last pass.
  */
 export function buildHistory(
   messages: RawMessage[],
-  attachment?: AttachmentPayload,
+  attachments?: AttachmentPayload[],
 ): HistoryItem[] {
   const rawSlice = messages.slice(-20)
 
@@ -40,17 +41,33 @@ export function buildHistory(
   const firstUserIdx = rawSlice.findIndex(m => m.role === 'user')
   const trimmed = firstUserIdx > 0 ? rawSlice.slice(firstUserIdx) : rawSlice
 
-  const history: HistoryItem[] = trimmed.map(msg => {
-    if (attachment && msg.id === attachment.messageId && msg.role === 'user') {
-      const mediaType = attachment.mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
-      const contentBlock =
-        attachment.mimeType === 'application/pdf'
-          ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: attachment.base64 } }
-          : { type: 'image', source: { type: 'base64', media_type: mediaType, data: attachment.base64 } }
-      return {
-        role: 'user',
-        content: [contentBlock, { type: 'text', text: msg.content || '(attachment)' }],
+  // Build a lookup: messageId → attachments for that message
+  const attsByMessage = new Map<string, AttachmentPayload[]>()
+  if (attachments && attachments.length > 0) {
+    for (const att of attachments) {
+      const existing = attsByMessage.get(att.messageId)
+      if (existing) {
+        existing.push(att)
+      } else {
+        attsByMessage.set(att.messageId, [att])
       }
+    }
+  }
+
+  const history: HistoryItem[] = trimmed.map(msg => {
+    const msgAtts = msg.role === 'user' ? attsByMessage.get(msg.id) : undefined
+    if (msgAtts && msgAtts.length > 0) {
+      const contentBlocks: Array<{ type: string; [k: string]: unknown }> = []
+      for (const att of msgAtts) {
+        const mediaType = att.mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp'
+        const block =
+          att.mimeType === 'application/pdf'
+            ? { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: att.base64 } }
+            : { type: 'image', source: { type: 'base64', media_type: mediaType, data: att.base64 } }
+        contentBlocks.push(block)
+      }
+      contentBlocks.push({ type: 'text', text: msg.content || '(attachment)' })
+      return { role: 'user', content: contentBlocks }
     }
     if (msg.role === 'assistant') {
       return { role: 'assistant', content: msg.content }

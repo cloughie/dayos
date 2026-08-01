@@ -151,6 +151,14 @@ export function estimateRequestBytes(base64: string): number {
   return base64.length + 200_000
 }
 
+/**
+ * Estimate the combined request size for multiple attachments.
+ * Sums all base64 lengths and adds a single 200 KB overhead allowance.
+ */
+export function estimateCombinedRequestBytes(base64Strings: string[]): number {
+  return base64Strings.reduce((sum, b) => sum + b.length, 0) + 200_000
+}
+
 function canvasToBlob(
   canvas: HTMLCanvasElement,
   type: string,

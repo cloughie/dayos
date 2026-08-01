@@ -72,7 +72,10 @@ export function buildHistory(
     if (msg.role === 'assistant') {
       return { role: 'assistant', content: msg.content }
     }
-    return { role: 'user', content: msg.content }
+    // Use a fallback for empty content — happens when a user sends an attachment
+    // with no text. The binary is gone from history on subsequent turns, so we
+    // need at least a non-empty string to satisfy the Anthropic API.
+    return { role: 'user', content: msg.content || '(attachment)' }
   })
 
   // Defensive: normalise any consecutive same-role messages that could have

@@ -564,3 +564,44 @@ describe('normalizeRoles', () => {
     expect(result).toHaveLength(1)
   })
 })
+
+// ─── 6. Empty-content user messages (attachment-only turns) ────────────────
+describe('empty content fallback', () => {
+  it('attachment-only turn in history gets (attachment) fallback on next send', () => {
+    // Simulates: user sends image with no text → content is '' in messages state.
+    // On the next turn, buildHistory must not emit content: '' (Anthropic rejects it).
+    const msgs: RawMessage[] = [
+      user('c1', 'checkin'),
+      assistant('a0', 'greeting'),
+      user('u1', ''),          // image sent with no text
+      assistant('a1', 'nice photo!'),
+      user('u2', ''),          // PDF sent with no text
+    ]
+    const atts: AttachmentPayload[] = [
+      { messageId: 'u2', base64: 'pdfbase64', mimeType: 'application/pdf' },
+    ]
+    const result = buildHistory(msgs, atts)
+    // u1 should have fallback text, not empty string
+    const u1 = result.find(m => m.role === 'user' && typeof m.content === 'string' && m.content === '')
+    expect(u1).toBeUndefined()
+    // No user message should have empty string content
+    result.forEach(m => {
+      if (m.role === 'user') {
+        if (typeof m.content === 'string') expect(m.content).not.toBe('')
+        if (Array.isArray(m.content)) {
+          const textBlock = m.content.find((b: any) => b.type === 'text')
+          if (textBlock) expect((textBlock as any).text).not.toBe('')
+        }
+      }
+    })
+  })
+
+  it('attachment-only turn uses (attachment) fallback string', () => {
+    const msgs: RawMessage[] = [
+      user('u1', ''),
+      assistant('a1', 'reply'),
+    ]
+    const result = buildHistory(msgs)
+    expect(result[0]).toEqual({ role: 'user', content: '(attachment)' })
+  })
+})

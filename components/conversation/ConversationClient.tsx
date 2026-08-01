@@ -573,6 +573,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       return
     }
     const toProcess = files.slice(0, remaining)
+    // Tell the user if we silently capped the selection
+    if (files.length > remaining) {
+      setAttachmentError(`Only the first ${remaining} file${remaining === 1 ? '' : 's'} were added — limit is ${MAX_ATTACHMENTS} per message.`)
+    }
 
     const newAttachments: typeof pendingAttachments = []
 

@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
 import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
+import { hapticLight, hapticSuccess } from '@/lib/haptics'
 
 type Step = 'name' | 'ai_consent' | 'welcome'
 
@@ -24,6 +25,7 @@ function OnboardingFlow() {
   function handleNameContinue(e: React.FormEvent) {
     e.preventDefault()
     if (!preferredName.trim()) return
+    hapticLight()
     setStep('ai_consent')
   }
 
@@ -70,6 +72,7 @@ function OnboardingFlow() {
       return
     }
 
+    hapticSuccess()
     setUserId(user.id)
     setIsLoading(false)
     setShowReminderModal(true)
@@ -90,6 +93,8 @@ function OnboardingFlow() {
 
   async function handleReminderYes() {
     if (isNative()) {
+      // Fire haptic before the iOS system dialog takes over the screen
+      hapticLight()
       // Native iOS: request APNs permission, register device, then mark prompt seen
       const permission = await requestNativePermission()
       if (permission !== 'granted') {

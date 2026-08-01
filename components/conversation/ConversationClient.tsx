@@ -13,15 +13,11 @@ import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
 import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
+import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '@/lib/haptics'
 
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
 const STREAK_CACHE_KEY = 'dayos_streak_cache'
-
-// Subtle haptic tap — degrades gracefully if unsupported (iOS Safari, desktop)
-function hapticTap() {
-  try { navigator.vibrate?.(10) } catch { /* ignore */ }
-}
 
 // Fire-and-forget analytics — never throws, never blocks UX
 async function trackAnalyticsEvent(eventType: string, metadata?: Record<string, unknown>) {
@@ -415,6 +411,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   }
 
   function clearCheckIn() {
+    hapticWarning()
     localStorage.removeItem(STORAGE_KEY)
     localStorage.removeItem(PLAN_KEY)
     setMessages([])
@@ -445,7 +442,8 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     }
 
     if (isNative()) {
-      // Native iOS: request permission via the system dialog, then register with APNs
+      // Native iOS: fire haptic before the system dialog takes over, then request permission
+      hapticLight()
       const permission = await requestNativePermission()
       if (permission !== 'granted') return
       const token = await registerForNativePush()
@@ -495,6 +493,9 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   }
 
   function savePlan(content: string, messageId: string) {
+    const isUpdate = savedPlan !== null
+    if (isUpdate) { hapticLight() } else { hapticSuccess() }
+
     const date = new Date().toISOString().split('T')[0]
     const plan: SavedPlan = {
       content,
@@ -565,7 +566,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         }
 
         const finalMessages = [...updatedMessages, aiMessage]
-        hapticTap()
+        hapticLight()
         setMessages(finalMessages)
 
         // Fire-and-forget memory extraction — only every 8 messages to avoid redundant extraction
@@ -614,6 +615,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   // full request/response cycle independently of sendMessage.
   async function startCheckIn() {
     if (isLoading) return
+    hapticMedium()
 
     const now = new Date()
     const time = `${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`
@@ -657,7 +659,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         created_at: new Date().toISOString(),
       }
 
-      hapticTap()
+      hapticLight()
       setMessages([userMessage, aiMessage])
     } catch (err) {
       console.error('Chat error:', err)
@@ -696,7 +698,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   function handleSend() {
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
-    hapticTap()
+    hapticLight()
     sendMessage(trimmed)
   }
 
@@ -752,6 +754,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
       recorder.start()
       mediaRecorderRef.current = recorder
+      hapticMedium()
       setVoiceState('recording')
     } catch (err) {
       console.error('[Voice] Failed to start recording:', err)
@@ -760,12 +763,14 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   }
 
   function cancelRecording() {
+    hapticLight()
     cancelledRef.current = true
     mediaRecorderRef.current?.stop()
     setVoiceState('idle')
   }
 
   function confirmRecording() {
+    hapticLight()
     cancelledRef.current = false
     setVoiceState('transcribing')
     mediaRecorderRef.current?.stop()

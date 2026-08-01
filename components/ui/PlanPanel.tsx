@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import MarkdownContent from '@/components/ui/MarkdownContent'
+import { hapticMedium } from '@/lib/haptics'
 
 export interface SavedPlan {
   content: string
@@ -73,6 +74,7 @@ export default function PlanPanel({ isOpen, onClose, plan, yesterdayPlan }: Plan
       mode = 'undecided'
 
       if (deltaY > 120 || velocity > 0.5) {
+        hapticMedium()
         setDragY(window.innerHeight)
         setTimeout(() => {
           setDragY(0)

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
 import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
+import { hapticLight } from '@/lib/haptics'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -52,6 +53,7 @@ export default function SettingsModal({ isOpen, onClose, userEmail, onMemoryOpen
     if (!userId) return
     if (notificationsBusy) return
 
+    hapticLight()
     setNotificationsBusy(true)
     const supabase = createClient()
 

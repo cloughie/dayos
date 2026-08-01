@@ -247,6 +247,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const prevLoadingRef = useRef(false)
   const initialScrollDoneRef = useRef(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  // Set synchronously in handleSend before any await so the attach button
+  // onClick can read it on the very next event tick — before React has had
+  // a chance to flush the isLoading state update to the DOM.
+  const sendInProgressRef = useRef(false)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
   const [aiConsent, setAiConsent] = useState<boolean | null>(null)
@@ -878,6 +882,13 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     if ((!trimmed && pendingAttachments.length === 0) || isLoading) return
     hapticMedium()
 
+    // Mark send in progress synchronously — before any await and before React
+    // flushes the isLoading state update. This prevents the attach button from
+    // opening the native file picker (which would background the WKWebView and
+    // abort the in-flight fetch) during the gap between this function starting
+    // and isLoading being reflected in the DOM.
+    sendInProgressRef.current = true
+
     // Snapshot pending attachments — clear only after a successful send
     const atts = pendingAttachments
     setAttachmentError(null)
@@ -888,6 +899,8 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         ? { newAttachments: atts.map(a => ({ id: a.id, base64: a.base64, mimeType: a.mimeType, name: a.name, fileType: a.fileType })) }
         : undefined,
     )
+
+    sendInProgressRef.current = false
 
     if (succeeded && atts.length > 0) {
       atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
@@ -1205,7 +1218,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
                 {/* Attachment button */}
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
+                  onClick={() => { if (!sendInProgressRef.current) fileInputRef.current?.click() }}
                   disabled={isLoading || showNewDayBanner || pendingAttachments.length >= MAX_ATTACHMENTS}
                   className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
                   aria-label="Attach image or PDF"

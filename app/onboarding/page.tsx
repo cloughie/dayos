@@ -188,6 +188,7 @@ function OnboardingFlow() {
                 { label: 'Your messages', detail: 'What you type during a check-in conversation.' },
                 { label: 'Your preferred name', detail: 'Used so responses feel personal.' },
                 { label: 'Your saved memories', detail: 'Short summaries from previous sessions, so Claude can build on context.' },
+                { label: 'Any images or documents you attach', detail: 'Only transmitted when you choose to attach something.' },
               ].map(({ label, detail }) => (
                 <div key={label} className="px-4 py-3.5">
                   <p className="text-sm font-medium text-zinc-200 mb-0.5">{label}</p>

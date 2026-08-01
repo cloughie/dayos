@@ -4,6 +4,9 @@ export type Message = {
   content: string
   created_at: string
   hidden?: boolean
+  // Display-only metadata for attached files. Contains no binary — the filename
+  // is stored locally for the badge and is never transmitted to the server.
+  attachmentPreview?: { type: 'image' | 'pdf'; name: string }
 }
 
 export type ConversationMode = 'checkin' | 'refine'

@@ -14,6 +14,14 @@ import { createClient } from '@/lib/supabase/client'
 import { subscribeToPush, savePushSubscription } from '@/lib/push'
 import { isNative, requestNativePermission, registerForNativePush } from '@/lib/nativePush'
 import { hapticLight, hapticMedium, hapticSuccess, hapticWarning } from '@/lib/haptics'
+import {
+  validateFile,
+  compressImage,
+  readPdfAsBase64,
+  getFileType,
+  estimateRequestBytes,
+  REQUEST_BUDGET_BYTES,
+} from '@/lib/attachments'
 
 const STORAGE_KEY = 'dayos_conversation'
 const PLAN_KEY = 'dayos_plan'
@@ -135,6 +143,23 @@ const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
       return (
         <div ref={ref} className="flex justify-end mb-3">
           <div className="max-w-[80%] bg-zinc-800 rounded-2xl rounded-tr-sm px-4 py-3">
+            {message.attachmentPreview && (
+              <div className="flex items-center gap-1.5 mb-2">
+                {message.attachmentPreview.type === 'image' ? (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                    <rect x="3" y="3" width="18" height="18" rx="2" />
+                    <circle cx="8.5" cy="8.5" r="1.5" />
+                    <polyline points="21 15 16 10 5 21" />
+                  </svg>
+                ) : (
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                    <polyline points="14 2 14 8 20 8" />
+                  </svg>
+                )}
+                <span className="text-xs text-zinc-400 truncate max-w-[180px]">{message.attachmentPreview.name}</span>
+              </div>
+            )}
             <p className="text-white text-sm leading-relaxed whitespace-pre-wrap">{message.content}</p>
           </div>
         </div>
@@ -215,12 +240,33 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const startNewDayRef = useRef(false)
   const prevLoadingRef = useRef(false)
   const initialScrollDoneRef = useRef(false)
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [showScrollButton, setShowScrollButton] = useState(false)
   const [showPushPrompt, setShowPushPrompt] = useState(false)
   const [aiConsent, setAiConsent] = useState<boolean | null>(null)
   const [showConsentOverlay, setShowConsentOverlay] = useState(false)
   const [streak, setStreak] = useState<number | null>(null)
   const [checkedInDays, setCheckedInDays] = useState<string[]>([])
+
+  // ── Attachment state ────────────────────────────────────────────────────────
+  // pendingAttachment: ephemeral composing state — cleared on send/cancel, never serialised.
+  // previewUrl is a revocable blob: URL used only for the thumbnail in the input area.
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    base64: string
+    mimeType: string
+    name: string
+    fileType: 'image' | 'pdf'
+    previewUrl: string
+  } | null>(null)
+  // activeAttachment: the most recently sent attachment binary, kept in session memory
+  // so follow-up turns can reference it. Replaced when a new attachment is sent.
+  // Never persisted to localStorage or Supabase.
+  const [activeAttachment, setActiveAttachment] = useState<{
+    messageId: string
+    base64: string
+    mimeType: string
+  } | null>(null)
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
 
   // Computed synchronously — pure date math, no network needed.
   const tz = typeof window !== 'undefined' ? Intl.DateTimeFormat().resolvedOptions().timeZone : 'UTC'
@@ -492,6 +538,65 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     setShowConsentOverlay(false)
   }
 
+  // ─── Attachment handlers ───────────────────────────────────────────────────
+
+  async function handleAttachmentSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    // Reset so the same file can be re-selected after cancellation
+    e.target.value = ''
+    if (!file) return
+
+    setAttachmentError(null)
+
+    const validation = validateFile(file)
+    if (!validation.ok) {
+      setAttachmentError(validation.error.message)
+      return
+    }
+
+    // Revoke previous pending preview URL before replacing
+    if (pendingAttachment?.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl)
+
+    const fileType = getFileType(file)!
+
+    if (fileType === 'image') {
+      try {
+        const { base64, mimeType } = await compressImage(file)
+        if (estimateRequestBytes(base64) > REQUEST_BUDGET_BYTES) {
+          setAttachmentError('Image is too large to send even after compression.')
+          return
+        }
+        // Object URL for thumbnail display — revoked on send or cancel
+        const previewUrl = URL.createObjectURL(file)
+        setPendingAttachment({ base64, mimeType, name: file.name, fileType: 'image', previewUrl })
+      } catch {
+        setAttachmentError('Could not process this image. Try a different file.')
+      }
+    } else {
+      // PDF — read as-is (already validated under size limit)
+      try {
+        const base64 = await readPdfAsBase64(file)
+        if (estimateRequestBytes(base64) > REQUEST_BUDGET_BYTES) {
+          setAttachmentError(
+            'This PDF is too large to attach. Choose a smaller file or attach screenshots of the relevant pages.',
+          )
+          return
+        }
+        setPendingAttachment({ base64, mimeType: 'application/pdf', name: file.name, fileType: 'pdf', previewUrl: '' })
+      } catch {
+        setAttachmentError('Could not read this PDF. Try a different file.')
+      }
+    }
+  }
+
+  function handleCancelAttachment() {
+    if (pendingAttachment?.previewUrl) URL.revokeObjectURL(pendingAttachment.previewUrl)
+    setPendingAttachment(null)
+    setAttachmentError(null)
+  }
+
+  // ─── Plan ─────────────────────────────────────────────────────────────────
+
   function savePlan(content: string, messageId: string) {
     const isUpdate = savedPlan !== null
     if (isUpdate) { hapticLight() } else { hapticSuccess() }
@@ -527,15 +632,26 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   // ─── Send message ─────────────────────────────────────────────────────────
 
   const sendMessage = useCallback(
-    async (userContent: string, hidden?: boolean) => {
+    async (
+      userContent: string,
+      opts?: {
+        // New attachment for this turn (from pendingAttachment, snapshotted by handleSend)
+        newAttachment?: { base64: string; mimeType: string; name: string; fileType: 'image' | 'pdf' } | null
+        hidden?: boolean
+      },
+    ) => {
       if (isLoading) return
+
+      const newAtt = opts?.newAttachment ?? null
 
       const userMessage: Message = {
         id: crypto.randomUUID(),
         role: 'user',
         content: userContent,
         created_at: new Date().toISOString(),
-        ...(hidden ? { hidden: true } : {}),
+        ...(opts?.hidden ? { hidden: true } : {}),
+        // Persist only display metadata — no binary
+        ...(newAtt ? { attachmentPreview: { type: newAtt.fileType, name: newAtt.name } } : {}),
       }
 
       const updatedMessages = [...messages, userMessage]
@@ -543,12 +659,27 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       setIsLoading(true)
       setInput('')
 
+      // Determine which attachment binary goes to the API this turn:
+      // - New attachment → becomes the active attachment going forward
+      // - No new attachment → carry forward the existing active attachment (follow-up turn)
+      const apiAttachment = newAtt
+        ? { messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType }
+        : activeAttachment
+        ? { ...activeAttachment }
+        : null
+
+      // Update active attachment state: new binary replaces old (old is GC'd)
+      if (newAtt) {
+        setActiveAttachment({ messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType })
+      }
+
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             messages: updatedMessages,
+            ...(apiAttachment ? { attachment: apiAttachment } : {}),
             source: 'sendMessage',
           }),
         })
@@ -604,7 +735,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         }
       }
     },
-    [isLoading, messages]
+    [isLoading, messages, activeAttachment]
   )
 
   // ─── Handle send ──────────────────────────────────────────────────────────
@@ -699,7 +830,14 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     const trimmed = input.trim()
     if (!trimmed || isLoading) return
     hapticLight()
-    sendMessage(trimmed)
+
+    // Snapshot and clear pending attachment before calling sendMessage
+    const att = pendingAttachment
+    if (att?.previewUrl) URL.revokeObjectURL(att.previewUrl)
+    setPendingAttachment(null)
+    setAttachmentError(null)
+
+    sendMessage(trimmed, att ? { newAttachment: { base64: att.base64, mimeType: att.mimeType, name: att.name, fileType: att.fileType } } : undefined)
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -959,49 +1097,110 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           </div>
         ) : (
           /* ── Normal input mode ── */
-          <div className="flex items-end gap-2 bg-zinc-900 rounded-2xl px-3 py-2">
-            <textarea
-              ref={textareaRef}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={handleKeyDown}
-              placeholder="Say something…"
-              disabled={isLoading || showNewDayBanner}
-              rows={1}
-              className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
-            />
-
-            {/* Mic button */}
-            {hasSpeechSupport && (
-              <button
-                type="button"
-                onClick={startRecording}
-                disabled={isLoading || showNewDayBanner}
-                className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
-                aria-label="Start voice input"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="9" y="2" width="6" height="11" rx="3" />
-                  <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                  <line x1="12" y1="19" x2="12" y2="22" />
-                  <line x1="8" y1="22" x2="16" y2="22" />
-                </svg>
-              </button>
+          <div className="flex flex-col gap-2">
+            {/* Attachment preview row */}
+            {pendingAttachment && (
+              <div className="flex items-center gap-2 px-1">
+                {pendingAttachment.fileType === 'image' ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={pendingAttachment.previewUrl}
+                    alt=""
+                    className="h-14 w-14 rounded-lg object-cover shrink-0 border border-zinc-700"
+                  />
+                ) : (
+                  <div className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2.5 py-1.5 shrink-0">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400">
+                      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                      <polyline points="14 2 14 8 20 8" />
+                    </svg>
+                    <span className="text-xs text-zinc-300 max-w-[140px] truncate">{pendingAttachment.name}</span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={handleCancelAttachment}
+                  className="w-5 h-5 flex items-center justify-center rounded-full bg-zinc-700 text-zinc-300 hover:bg-zinc-600 transition-colors shrink-0"
+                  aria-label="Remove attachment"
+                >
+                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                  </svg>
+                </button>
+              </div>
             )}
 
-            {/* Send button */}
-            <button
-              type="button"
-              onClick={handleSend}
-              disabled={isLoading || showNewDayBanner || !input.trim()}
-              className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
-              aria-label="Send message"
-            >
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="12" y1="19" x2="12" y2="5" />
-                <polyline points="5 12 12 5 19 12" />
-              </svg>
-            </button>
+            {/* Attachment error */}
+            {attachmentError && (
+              <p className="text-xs text-red-400 px-1">{attachmentError}</p>
+            )}
+
+            <div className="flex items-end gap-2 bg-zinc-900 rounded-2xl px-3 py-2">
+              {/* Attachment button */}
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={isLoading || showNewDayBanner}
+                className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
+                aria-label="Attach image or PDF"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                </svg>
+              </button>
+
+              {/* Hidden file input */}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                className="hidden"
+                onChange={handleAttachmentSelect}
+              />
+
+              <textarea
+                ref={textareaRef}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Say something…"
+                disabled={isLoading || showNewDayBanner}
+                rows={1}
+                className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
+              />
+
+              {/* Mic button */}
+              {hasSpeechSupport && (
+                <button
+                  type="button"
+                  onClick={startRecording}
+                  disabled={isLoading || showNewDayBanner}
+                  className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
+                  aria-label="Start voice input"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="9" y="2" width="6" height="11" rx="3" />
+                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                    <line x1="12" y1="19" x2="12" y2="22" />
+                    <line x1="8" y1="22" x2="16" y2="22" />
+                  </svg>
+                </button>
+              )}
+
+              {/* Send button */}
+              <button
+                type="button"
+                onClick={handleSend}
+                disabled={isLoading || showNewDayBanner || !input.trim()}
+                className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
+                aria-label="Send message"
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="12" y1="19" x2="12" y2="5" />
+                  <polyline points="5 12 12 5 19 12" />
+                </svg>
+              </button>
+            </div>
           </div>
         )}
       </div>
@@ -1054,6 +1253,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
                   'Your messages during a conversation',
                   'Your preferred name',
                   'Your saved memories',
+                  'Images or documents you choose to attach',
                 ].map(item => (
                   <div key={item} className="flex items-start gap-2.5 px-3.5 py-2.5">
                     <span className="text-zinc-500 mt-px shrink-0">

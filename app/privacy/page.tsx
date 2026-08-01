@@ -107,6 +107,7 @@ export default function PrivacyPage() {
                   'Your messages and the AI\'s replies from the current conversation (up to 20 recent turns)',
                   'Your preferred name, if you have set one',
                   'Short summaries you have saved as memories, so responses can be personalised',
+                  'Images or documents you choose to attach (binary content only — the filename is never transmitted)',
                 ].map(item => (
                   <li key={item} className="flex items-start gap-2.5">
                     <span className="text-zinc-600 mt-px shrink-0">

@@ -639,8 +639,8 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         newAttachment?: { base64: string; mimeType: string; name: string; fileType: 'image' | 'pdf' } | null
         hidden?: boolean
       },
-    ) => {
-      if (isLoading) return
+    ): Promise<boolean> => {
+      if (isLoading) return false
 
       const newAtt = opts?.newAttachment ?? null
 
@@ -673,6 +673,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         setActiveAttachment({ messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType })
       }
 
+      let succeeded = false
       try {
         const response = await fetch('/api/chat', {
           method: 'POST',
@@ -699,6 +700,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         const finalMessages = [...updatedMessages, aiMessage]
         hapticLight()
         setMessages(finalMessages)
+        succeeded = true
 
         // Fire-and-forget memory extraction — only every 8 messages to avoid redundant extraction
         if (finalMessages.length >= 8 && finalMessages.length % 8 === 0) {
@@ -734,6 +736,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
         }
       }
+      return succeeded
     },
     [isLoading, messages, activeAttachment]
   )
@@ -826,18 +829,24 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     }
   }
 
-  function handleSend() {
+  async function handleSend() {
     const trimmed = input.trim()
-    if (!trimmed || isLoading) return
+    if ((!trimmed && !pendingAttachment) || isLoading) return
     hapticLight()
 
-    // Snapshot and clear pending attachment before calling sendMessage
+    // Snapshot pending attachment — clear only after a successful send
     const att = pendingAttachment
-    if (att?.previewUrl) URL.revokeObjectURL(att.previewUrl)
-    setPendingAttachment(null)
     setAttachmentError(null)
 
-    sendMessage(trimmed, att ? { newAttachment: { base64: att.base64, mimeType: att.mimeType, name: att.name, fileType: att.fileType } } : undefined)
+    const succeeded = await sendMessage(
+      trimmed,
+      att ? { newAttachment: { base64: att.base64, mimeType: att.mimeType, name: att.name, fileType: att.fileType } } : undefined,
+    )
+
+    if (succeeded && att) {
+      if (att.previewUrl) URL.revokeObjectURL(att.previewUrl)
+      setPendingAttachment(null)
+    }
   }
 
   function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
@@ -1191,7 +1200,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
               <button
                 type="button"
                 onClick={handleSend}
-                disabled={isLoading || showNewDayBanner || !input.trim()}
+                disabled={isLoading || showNewDayBanner || (!input.trim() && !pendingAttachment)}
                 className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
                 aria-label="Send message"
               >

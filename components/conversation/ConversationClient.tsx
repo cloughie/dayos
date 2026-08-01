@@ -893,18 +893,20 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     const atts = pendingAttachments
     setAttachmentError(null)
 
-    const succeeded = await sendMessage(
-      trimmed,
-      atts.length > 0
-        ? { newAttachments: atts.map(a => ({ id: a.id, base64: a.base64, mimeType: a.mimeType, name: a.name, fileType: a.fileType })) }
-        : undefined,
-    )
+    try {
+      const succeeded = await sendMessage(
+        trimmed,
+        atts.length > 0
+          ? { newAttachments: atts.map(a => ({ id: a.id, base64: a.base64, mimeType: a.mimeType, name: a.name, fileType: a.fileType })) }
+          : undefined,
+      )
 
-    sendInProgressRef.current = false
-
-    if (succeeded && atts.length > 0) {
-      atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
-      setPendingAttachments([])
+      if (succeeded && atts.length > 0) {
+        atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
+        setPendingAttachments([])
+      }
+    } finally {
+      sendInProgressRef.current = false
     }
   }
 

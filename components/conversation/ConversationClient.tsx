@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useMemo } from 'react'
-import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import MarkdownContent from '@/components/ui/MarkdownContent'
 import SettingsModal from '@/components/ui/SettingsModal'
@@ -777,7 +776,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           },
         ])
       } finally {
-        flushSync(() => setIsLoading(false))
+        setIsLoading(false)
         // Skip auto-focus on native iOS — programmatic focus triggers the input accessory
         // bar to float over the input. User taps to type after reading the response.
         if (!(window as any).Capacitor?.isNativePlatform?.()) {
@@ -855,7 +854,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         },
       ])
     } finally {
-      flushSync(() => setIsLoading(false))
+      setIsLoading(false)
       if (!(window as any).Capacitor?.isNativePlatform?.()) {
         requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
       }
@@ -901,7 +900,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           : undefined,
       )
 
-      if (succeeded && atts.length > 0) {
+      // Always clear staged attachments after a send attempt that included them,
+      // regardless of success or failure. On failure this breaks the retry loop
+      // where the same images keep being re-sent and consistently failing.
+      if (atts.length > 0) {
         atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
         setPendingAttachments([])
       }

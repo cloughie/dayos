@@ -3,19 +3,45 @@ import webpush from 'web-push'
 import { createAdminClient } from '@/lib/supabase/admin'
 import { sendApnsNotification } from '@/lib/apns'
 
-const MESSAGES = [
-  { title: 'Ready to check in?',       body: 'Five minutes to get clear on what matters today.' },
-  { title: 'Time to check in',         body: 'A quick reset before the day gets away from you.' },
-  { title: 'Take five minutes',        body: 'Clear your head and focus on what matters today.' },
-  { title: 'Before the day runs away', body: 'Pause for five minutes and think clearly about today.' },
-  { title: 'Get clear for today',      body: 'A small check-in now can change the whole day.' },
-  { title: 'Five minutes for clarity', body: 'Slow down for a moment and focus on what matters.' },
-  { title: 'Morning check-in?',        body: 'Start the day with a little more clarity and intention.' },
-  { title: 'What matters today?',      body: 'A quick check-in to clear your head and set direction.' },
+// Each template has a generic title/body and optional named variants.
+// namedTitle / namedBody use {name} as a placeholder.
+// Templates with no named variants are sent as-is regardless of whether a name is available.
+type MessageTemplate = {
+  title: string
+  namedTitle?: string
+  body: string
+  namedBody?: string
+}
+
+const MESSAGES: MessageTemplate[] = [
+  // Name in title
+  { title: 'Morning check-in?',        namedTitle: 'Morning, {name}',             body: 'Five minutes to get clear on what matters today.' },
+  // Name in body
+  { title: 'Time to check in',                                                     body: 'A quick reset before the day gets away from you.',       namedBody: 'A quick reset before the day gets away from you, {name}.' },
+  // Name in title
+  { title: 'What matters today?',      namedTitle: 'What matters today, {name}?', body: 'Take a few minutes to clear your head and set direction.' },
+  // Fully generic
+  { title: 'Before the day gets busy',                                             body: 'Pause for five minutes and think clearly about today.' },
+  // Name in body
+  { title: 'Take five minutes',                                                    body: 'Clear your head and focus on what matters today.',        namedBody: 'Clear your head and focus on what matters, {name}.' },
+  // Fully generic
+  { title: 'Get clear for today',                                                  body: 'A small check-in now can help shape the day.' },
+  // Name in body
+  { title: 'Morning check-in?',                                                    body: 'Start with a little more clarity and intention.',         namedBody: 'Start with a little more clarity and intention, {name}.' },
+  // Fully generic
+  { title: "What's the focus today?",                                              body: 'A quick check-in before the day takes over.' },
 ]
 
-function pickMessage(lastTitle: string | null): { title: string; body: string } {
-  const pool = lastTitle ? MESSAGES.filter((m) => m.title !== lastTitle) : MESSAGES
+function resolveMessage(template: MessageTemplate, name: string | null): { title: string; body: string } {
+  const n = name?.trim() || null
+  const title = n && template.namedTitle ? template.namedTitle.replace('{name}', n) : template.title
+  const body  = n && template.namedBody  ? template.namedBody.replace('{name}', n)  : template.body
+  return { title, body }
+}
+
+function pickMessage(lastTitle: string | null, name: string | null): { title: string; body: string } {
+  const resolved = MESSAGES.map((t) => resolveMessage(t, name))
+  const pool = lastTitle ? resolved.filter((m) => m.title !== lastTitle) : resolved
   return pool[Math.floor(Math.random() * pool.length)]
 }
 
@@ -43,11 +69,17 @@ export async function GET(request: Request) {
   // ── Step 1: eligible users ────────────────────────────────────────────────
   const { data: enabledProfiles } = await supabase
     .from('user_profiles')
-    .select('id')
+    .select('id, preferred_name')
     .eq('push_notifications_enabled', true)
     .eq('push_notifications_permission_status', 'granted')
 
   if (!enabledProfiles?.length) return NextResponse.json({ ok: true, sent: 0 })
+
+  // Build a lookup so the device loop can resolve names without extra queries.
+  // Values are trimmed strings or null — never logged.
+  const nameByUserId = new Map<string, string | null>(
+    enabledProfiles.map((p) => [p.id, p.preferred_name?.trim() || null]),
+  )
 
   // ── Step 2: filter out users who already checked in today ─────────────────
   // One analytics query per user, done up-front so devices for the same user
@@ -92,7 +124,7 @@ export async function GET(request: Request) {
         if (lastSentDay === today) continue
       }
 
-      const message = pickMessage(dev.last_notification_body)
+      const message = pickMessage(dev.last_notification_body, nameByUserId.get(dev.user_id) ?? null)
 
       if (dev.platform === 'web') {
         // ── Web Push ──────────────────────────────────────────────────────

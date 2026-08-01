@@ -3,6 +3,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import type { Message } from '@/lib/types'
 import { createClient } from '@/lib/supabase/server'
 import { decrypt } from '@/lib/encryption'
+import { buildHistory } from '@/lib/chat-history'
 
 // Attachment carried from the client for a single conversation turn.
 // Only the binary (base64 + mimeType) and the message ID arrive here —
@@ -11,33 +12,6 @@ type AttachmentPayload = {
   messageId: string
   base64: string
   mimeType: string
-}
-
-function buildContentBlocks(
-  text: string,
-  attachment: AttachmentPayload,
-): Anthropic.Messages.MessageParam['content'] {
-  const imageBlock: Anthropic.Messages.ImageBlockParam = {
-    type: 'image',
-    source: {
-      type: 'base64',
-      media_type: attachment.mimeType as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-      data: attachment.base64,
-    },
-  }
-  const docBlock: Anthropic.Messages.DocumentBlockParam = {
-    type: 'document',
-    source: {
-      type: 'base64',
-      media_type: 'application/pdf',
-      data: attachment.base64,
-    },
-  }
-  const textBlock: Anthropic.Messages.TextBlockParam = {
-    type: 'text',
-    text: text || '(attachment)',
-  }
-  return [attachment.mimeType === 'application/pdf' ? docBlock : imageBlock, textBlock]
 }
 
 const CATEGORY_ORDER = ['pattern', 'decision', 'issue', 'person', 'preference']
@@ -107,25 +81,7 @@ export async function POST(request: Request) {
       console.error('[Memory] Failed to load memories:', err)
     }
 
-    // Slice to the last 20 messages, then trim from the front until we reach a user
-    // message. Anthropic requires the first message to be from the user role.
-    // Without this trim, a 21-item slice drops the initial hidden user message and
-    // the history begins with an assistant message, causing a 400 rejection.
-    const rawSlice = messages.slice(-20)
-    const firstUserIdx = rawSlice.findIndex(m => m.role === 'user')
-    const trimmedSlice = firstUserIdx > 0 ? rawSlice.slice(firstUserIdx) : rawSlice
-
-    const history = trimmedSlice.map((msg) => {
-      // Apply the active attachment to its originating message only.
-      // All other messages in history remain plain text.
-      if (attachment && msg.id === attachment.messageId && msg.role === 'user') {
-        return {
-          role: 'user' as const,
-          content: buildContentBlocks(msg.content, attachment),
-        }
-      }
-      return { role: msg.role as 'user' | 'assistant', content: msg.content }
-    })
+    const history = buildHistory(messages, attachment)
 
     const nameContext = preferredName ? `User preferred name: ${preferredName}` : ''
     const systemPrompt = [nameContext, memoryContext].filter(Boolean).join('\n\n')
@@ -156,7 +112,9 @@ export async function POST(request: Request) {
       model: 'claude-sonnet-4-6',
       max_tokens: 1000,
       ...(systemPrompt ? { system: systemPrompt } : {}),
-      messages: history,
+      // chat-history.ts uses a generic block type to stay SDK-free for testing;
+      // cast here where the SDK types are in scope.
+      messages: history as Anthropic.Messages.MessageParam[],
     })
 
     const message = response.content[0]?.type === 'text' ? response.content[0].text : ''

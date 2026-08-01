@@ -636,7 +636,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
   function savePlan(content: string, messageId: string) {
     const isUpdate = savedPlan !== null
-    if (isUpdate) { hapticLight() } else { hapticSuccess() }
+    if (isUpdate) { hapticMedium() } else { hapticSuccess() }
 
     const date = new Date().toISOString().split('T')[0]
     const plan: SavedPlan = {
@@ -873,7 +873,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   async function handleSend() {
     const trimmed = input.trim()
     if ((!trimmed && pendingAttachments.length === 0) || isLoading) return
-    hapticLight()
+    hapticMedium()
 
     // Snapshot pending attachments — clear only after a successful send
     const atts = pendingAttachments
@@ -960,7 +960,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   }
 
   function confirmRecording() {
-    hapticLight()
+    hapticMedium()
     cancelledRef.current = false
     setVoiceState('transcribing')
     mediaRecorderRef.current?.stop()

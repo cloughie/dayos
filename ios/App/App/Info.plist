@@ -32,6 +32,8 @@
 	<array>
 		<string>armv7</string>
 	</array>
+	<key>NSCameraUsageDescription</key>
+	<string>DayOS uses your camera so you can attach a photo to your daily check-in.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>DayOS uses your microphone to transcribe voice messages during your daily check-in.</string>
 	<key>UISupportedInterfaceOrientations</key>

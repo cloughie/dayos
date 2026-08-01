@@ -387,7 +387,127 @@ describe('activeAttachments state machine', () => {
   })
 })
 
-// ─── 6. normalizeRoles: defensive role deduplication ────────────────────────
+// ─── 6. Remove attachment during send ───────────────────────────────────────
+//
+// Simulates pressing X on the thumbnail while a request is in-flight.
+// The X button is now disabled={isLoading}, so this can no longer happen via
+// normal UI. These tests confirm the state-machine and history-building
+// invariants that MUST hold regardless, and serve as a regression guard.
+
+describe('remove attachment during send', () => {
+  // Re-use the simulateSend helper shape inline for clarity.
+  type AttGroup = Array<{ messageId: string; base64: string; mimeType: string }> | null
+
+  function simulateSend(
+    currentActive: AttGroup,
+    newAtts: Array<{ base64: string; mimeType: string }> | null,
+    messageId: string,
+    succeeds: boolean,
+  ): AttGroup {
+    if (succeeds && newAtts && newAtts.length > 0) {
+      return newAtts.map(a => ({ messageId, base64: a.base64, mimeType: a.mimeType }))
+    }
+    return currentActive
+  }
+
+  // --- activeAttachments state machine -----------------------------------------
+
+  it('failed send (X mid-send, request errors) does NOT set activeAttachments', () => {
+    // activeAttachments is null before any send
+    const result = simulateSend(null, [{ base64: 'img1', mimeType: 'image/jpeg' }], 'msg1', false)
+    expect(result).toBeNull()
+  })
+
+  it('failed send does NOT overwrite an existing active group', () => {
+    const existing: AttGroup = [{ messageId: 'prev', base64: 'prev_img', mimeType: 'image/jpeg' }]
+    const result = simulateSend(existing, [{ base64: 'new_img', mimeType: 'image/jpeg' }], 'msg2', false)
+    expect(result).toEqual(existing)
+  })
+
+  it('successful send (X pressed but request already completed) sets activeAttachments', () => {
+    const result = simulateSend(null, [{ base64: 'img1', mimeType: 'image/jpeg' }], 'msg1', true)
+    expect(result).toEqual([{ messageId: 'msg1', base64: 'img1', mimeType: 'image/jpeg' }])
+  })
+
+  // --- history after a failed mid-send -----------------------------------------
+
+  it('subsequent plain-text send after failed attachment send produces valid history', () => {
+    // Conversation: checkin → reply → user sends image (fails) → error reply → user retries with text
+    const msgs: RawMessage[] = [
+      user('c1', 'checkin'), assistant('a0', 'greeting'),
+      user('u1', 'here is an image'),
+      assistant('e1', 'Sorry, something went wrong. Please try again.'),
+      user('u2', 'ok let me try text instead'),
+    ]
+    // activeAttachments stayed null after the failed send; no attachments passed
+    const history = buildHistory(msgs, [])
+    expect(firstRole(history)).toBe('user')
+    expect(hasConsecutiveSameRole(history)).toBe(false)
+    // No multimodal blocks — plain text only
+    expect(history.every(m => !Array.isArray(m.content))).toBe(true)
+    // Final message is the user's text retry
+    const last = history[history.length - 1]
+    expect(last.role).toBe('user')
+    expect(last.content).toBe('ok let me try text instead')
+  })
+
+  it('subsequent plain-text send produces no multimodal blocks when activeAttachments is null', () => {
+    // sendMessage carry-forward: newAtts=null, activeAttachments=null → apiAttachments=[]
+    const msgs: RawMessage[] = [
+      user('u1', 'image attempt'), assistant('e1', 'Something went wrong. Please try again.'),
+      user('u2', 'follow-up text'),
+    ]
+    const history = buildHistory(msgs, []) // [] matches apiAttachments=[]
+    expect(history.every(m => !Array.isArray(m.content))).toBe(true)
+  })
+
+  // --- history after a successful send where X was pressed ---------------------
+
+  it('after successful mid-X send, carry-forward correctly attaches binary to the original message', () => {
+    // The request completed (X was cosmetic), activeAttachments was set.
+    // Next turn: no new attachments → carry forward the active group.
+    const msgs: RawMessage[] = [
+      user('c1', 'checkin'), assistant('a0', 'hi'),
+      user('u1', 'look at this image'), assistant('a1', 'I can see it'),
+      user('u2', 'follow-up question'),
+    ]
+    // activeAttachments: [{ messageId: 'u1', ... }] carried forward to next request
+    const carryForward: AttachmentPayload[] = [
+      { messageId: 'u1', base64: 'img_binary', mimeType: 'image/jpeg' },
+    ]
+    const history = buildHistory(msgs, carryForward)
+    // u1 gets the multimodal block
+    const u1Entry = history.find(m => Array.isArray(m.content))
+    expect(u1Entry).toBeDefined()
+    const blocks = u1Entry!.content as Array<{ type: string }>
+    expect(blocks[0].type).toBe('image')
+    // u2 (follow-up) remains plain text
+    const u2Entry = history.find(m => typeof m.content === 'string' && m.content === 'follow-up question')
+    expect(u2Entry).toBeDefined()
+    // No consecutive same-role messages
+    expect(hasConsecutiveSameRole(history)).toBe(false)
+  })
+
+  it('conversation is still valid after multiple failed sends followed by a plain-text success', () => {
+    // Stress-test: 3 failed attachment sends, then a working text message
+    const msgs: RawMessage[] = [
+      user('c1', 'checkin'), assistant('a0', 'greeting'),
+      user('f1', 'attempt 1'), assistant('e1', 'Sorry, something went wrong. Please try again.'),
+      user('f2', 'attempt 2'), assistant('e2', 'Sorry, something went wrong. Please try again.'),
+      user('f3', 'attempt 3'), assistant('e3', 'Sorry, something went wrong. Please try again.'),
+      user('u1', 'plain text works'),
+    ]
+    const history = buildHistory(msgs)
+    expect(firstRole(history)).toBe('user')
+    expect(hasConsecutiveSameRole(history)).toBe(false)
+    expect(history.every(m => !Array.isArray(m.content))).toBe(true)
+    const last = history[history.length - 1]
+    expect(last.role).toBe('user')
+    expect(last.content).toBe('plain text works')
+  })
+})
+
+// ─── 7. normalizeRoles: defensive role deduplication ────────────────────────
 
 describe('normalizeRoles', () => {
   it('is a no-op for already-alternating history', () => {

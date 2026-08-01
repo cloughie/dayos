@@ -154,12 +154,14 @@ const MessageBubble = forwardRef<HTMLDivElement, { message: Message }>(
                         <polyline points="21 15 16 10 5 21" />
                       </svg>
                     ) : (
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                        <polyline points="14 2 14 8 20 8" />
-                      </svg>
+                      <>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                          <polyline points="14 2 14 8 20 8" />
+                        </svg>
+                        <span className="text-xs text-zinc-400 truncate max-w-[140px]">{preview.name}</span>
+                      </>
                     )}
-                    <span className="text-xs text-zinc-400 truncate max-w-[140px]">{preview.name}</span>
                   </div>
                 ))}
               </div>
@@ -620,6 +622,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
     if (newAttachments.length > 0) {
       setPendingAttachments(prev => [...prev, ...newAttachments])
+      hapticLight()
     }
   }
 
@@ -1150,116 +1153,121 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         ) : (
           /* ── Normal input mode ── */
           <div className="flex flex-col gap-2">
-            {/* Attachment preview row */}
-            {pendingAttachments.length > 0 && (
-              <div className="flex items-center gap-2 px-1 flex-wrap">
-                {pendingAttachments.map(att => (
-                  <div key={att.id} className="relative shrink-0">
-                    {att.fileType === 'image' ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={att.previewUrl}
-                        alt=""
-                        className="h-14 w-14 rounded-lg object-cover border border-zinc-700"
-                      />
-                    ) : (
-                      <div className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2.5 py-1.5">
-                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
-                          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
-                          <polyline points="14 2 14 8 20 8" />
-                        </svg>
-                        <span className="text-xs text-zinc-300 max-w-[120px] truncate">{att.name}</span>
-                      </div>
-                    )}
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveAttachment(att.id)}
-                      className="absolute -top-1.5 -right-1.5 w-4 h-4 flex items-center justify-center rounded-full bg-zinc-600 text-zinc-200 hover:bg-zinc-500 transition-colors"
-                      aria-label="Remove attachment"
-                    >
-                      <svg width="7" height="7" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-                        <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
-                      </svg>
-                    </button>
-                  </div>
-                ))}
-                {pendingAttachments.length > 1 && (
-                  <span className="text-xs text-zinc-500 self-end pb-0.5">{pendingAttachments.length} of {MAX_ATTACHMENTS}</span>
-                )}
-              </div>
-            )}
-
-            {/* Attachment error */}
+            {/* Attachment error — above the composer */}
             {attachmentError && (
               <p className="text-xs text-red-400 px-1">{attachmentError}</p>
             )}
 
-            <div className="flex items-end gap-2 bg-zinc-900 rounded-2xl px-3 py-2">
-              {/* Attachment button */}
-              <button
-                type="button"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={isLoading || showNewDayBanner || pendingAttachments.length >= MAX_ATTACHMENTS}
-                className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
-                aria-label="Attach image or PDF"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
-                </svg>
-              </button>
-
-              {/* Hidden file input — multiple allows selecting several files at once */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
-                className="hidden"
-                onChange={handleAttachmentSelect}
-              />
-
-              <textarea
-                ref={textareaRef}
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Say something…"
-                disabled={isLoading || showNewDayBanner}
-                rows={1}
-                className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
-              />
-
-              {/* Mic button */}
-              {hasSpeechSupport && (
-                <button
-                  type="button"
-                  onClick={startRecording}
-                  disabled={isLoading || showNewDayBanner}
-                  className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
-                  aria-label="Start voice input"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="9" y="2" width="6" height="11" rx="3" />
-                    <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
-                    <line x1="12" y1="19" x2="12" y2="22" />
-                    <line x1="8" y1="22" x2="16" y2="22" />
-                  </svg>
-                </button>
+            {/* Composer — attachment strip + controls live inside one rounded container */}
+            <div className="bg-zinc-900 rounded-2xl">
+              {/* Attachment strip — horizontally scrollable, inside the composer */}
+              {pendingAttachments.length > 0 && (
+                <div className="flex items-center gap-2 px-3 pt-2.5 pb-2 overflow-x-auto">
+                  {pendingAttachments.map(att => (
+                    <div key={att.id} className="relative shrink-0">
+                      {att.fileType === 'image' ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={att.previewUrl}
+                          alt=""
+                          className="h-[72px] w-[72px] rounded-xl object-cover border border-zinc-700"
+                        />
+                      ) : (
+                        <div className="flex items-center gap-1.5 bg-zinc-800 rounded-xl px-2.5 py-2 max-w-[150px]">
+                          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-zinc-400 shrink-0">
+                            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                            <polyline points="14 2 14 8 20 8" />
+                          </svg>
+                          <span className="text-xs text-zinc-300 truncate">{att.name}</span>
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveAttachment(att.id)}
+                        disabled={isLoading}
+                        className="absolute -top-1.5 -right-1.5 w-5 h-5 flex items-center justify-center rounded-full bg-zinc-600 text-zinc-200 hover:bg-zinc-500 transition-colors disabled:opacity-50 disabled:pointer-events-none"
+                        aria-label="Remove attachment"
+                      >
+                        <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                  {pendingAttachments.length > 1 && (
+                    <span className="text-xs text-zinc-500 shrink-0 self-center">{pendingAttachments.length} of {MAX_ATTACHMENTS}</span>
+                  )}
+                </div>
               )}
 
-              {/* Send button */}
-              <button
-                type="button"
-                onClick={handleSend}
-                disabled={isLoading || showNewDayBanner || (!input.trim() && pendingAttachments.length === 0)}
-                className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
-                aria-label="Send message"
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="12" y1="19" x2="12" y2="5" />
-                  <polyline points="5 12 12 5 19 12" />
-                </svg>
-              </button>
+              {/* Controls row */}
+              <div className="flex items-end gap-2 px-3 py-2">
+                {/* Attachment button */}
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={isLoading || showNewDayBanner || pendingAttachments.length >= MAX_ATTACHMENTS}
+                  className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
+                  aria-label="Attach image or PDF"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48" />
+                  </svg>
+                </button>
+
+                {/* Hidden file input — multiple allows selecting several files at once */}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept="image/jpeg,image/png,image/gif,image/webp,application/pdf"
+                  className="hidden"
+                  onChange={handleAttachmentSelect}
+                />
+
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Say something…"
+                  disabled={isLoading || showNewDayBanner}
+                  rows={1}
+                  className="flex-1 bg-transparent text-white text-sm placeholder-zinc-500 focus:outline-none leading-6 py-1 min-h-[32px] max-h-[120px] overflow-y-auto disabled:opacity-50"
+                />
+
+                {/* Mic button */}
+                {hasSpeechSupport && (
+                  <button
+                    type="button"
+                    onClick={startRecording}
+                    disabled={isLoading || showNewDayBanner}
+                    className="w-8 h-8 flex items-center justify-center rounded-full shrink-0 text-zinc-400 hover:text-white transition-colors disabled:opacity-30 mb-0.5"
+                    aria-label="Start voice input"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="9" y="2" width="6" height="11" rx="3" />
+                      <path d="M19 10v2a7 7 0 0 1-14 0v-2" />
+                      <line x1="12" y1="19" x2="12" y2="22" />
+                      <line x1="8" y1="22" x2="16" y2="22" />
+                    </svg>
+                  </button>
+                )}
+
+                {/* Send button */}
+                <button
+                  type="button"
+                  onClick={handleSend}
+                  disabled={isLoading || showNewDayBanner || (!input.trim() && pendingAttachments.length === 0)}
+                  className="w-8 h-8 flex items-center justify-center bg-white text-zinc-950 rounded-full shrink-0 transition-opacity disabled:opacity-30 mb-0.5"
+                  aria-label="Send message"
+                >
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                    <line x1="12" y1="19" x2="12" y2="5" />
+                    <polyline points="5 12 12 5 19 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
           </div>
         )}

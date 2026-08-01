@@ -107,7 +107,15 @@ export async function POST(request: Request) {
       console.error('[Memory] Failed to load memories:', err)
     }
 
-    const history = messages.slice(-20).map((msg) => {
+    // Slice to the last 20 messages, then trim from the front until we reach a user
+    // message. Anthropic requires the first message to be from the user role.
+    // Without this trim, a 21-item slice drops the initial hidden user message and
+    // the history begins with an assistant message, causing a 400 rejection.
+    const rawSlice = messages.slice(-20)
+    const firstUserIdx = rawSlice.findIndex(m => m.role === 'user')
+    const trimmedSlice = firstUserIdx > 0 ? rawSlice.slice(firstUserIdx) : rawSlice
+
+    const history = trimmedSlice.map((msg) => {
       // Apply the active attachment to its originating message only.
       // All other messages in history remain plain text.
       if (attachment && msg.id === attachment.messageId && msg.role === 'user') {

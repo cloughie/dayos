@@ -668,11 +668,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         ? { ...activeAttachment }
         : null
 
-      // Update active attachment state: new binary replaces old (old is GC'd)
-      if (newAtt) {
-        setActiveAttachment({ messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType })
-      }
-
       let succeeded = false
       try {
         const response = await fetch('/api/chat', {
@@ -700,6 +695,14 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         const finalMessages = [...updatedMessages, aiMessage]
         hapticLight()
         setMessages(finalMessages)
+
+        // Update active attachment only on success. Moving this inside the try block
+        // prevents a failed send from poisoning subsequent requests: if the API call
+        // fails, activeAttachment remains unchanged so the next turn is unaffected.
+        if (newAtt) {
+          setActiveAttachment({ messageId: userMessage.id, base64: newAtt.base64, mimeType: newAtt.mimeType })
+        }
+
         succeeded = true
 
         // Fire-and-forget memory extraction — only every 8 messages to avoid redundant extraction

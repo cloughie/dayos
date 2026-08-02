@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useLayoutEffect, useRef, useCallback, forwardRef, useMemo } from 'react'
+import { flushSync } from 'react-dom'
 import { useRouter } from 'next/navigation'
 import MarkdownContent from '@/components/ui/MarkdownContent'
 import SettingsModal from '@/components/ui/SettingsModal'
@@ -948,11 +949,14 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     const atts = pendingAttachments
     setAttachmentError(null)
 
-    // Clear the composer immediately — text and attachments vanish as soon as
-    // the user taps Send, before the network round-trip completes.
-    // Blob URLs are NOT revoked: the sent message bubble still references them.
-    setInput('')
-    setPendingAttachments([])
+    // Force a synchronous DOM flush so the composer visually empties before
+    // sendMessage queues its own state updates (user message + isLoading).
+    // Without flushSync, React batches all four updates together and the
+    // attachment strip stays visible until the combined render fires.
+    flushSync(() => {
+      setInput('')
+      setPendingAttachments([])
+    })
 
     try {
       const succeeded = await sendMessage(

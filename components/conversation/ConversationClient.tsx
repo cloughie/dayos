@@ -20,6 +20,7 @@ import {
   getFileType,
   estimateCombinedRequestBytes,
   REQUEST_BUDGET_BYTES,
+  TARGET_OUTPUT_BYTES,
 } from '@/lib/attachments'
 
 const STORAGE_KEY = 'dayos_conversation'
@@ -433,9 +434,17 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // Save to localStorage whenever messages change
+  // Save to localStorage whenever messages change.
+  // Strip previewUrl before serializing — data URIs can be large and blob URLs
+  // are dead after a page reload, so neither is useful in persistent storage.
+  // The message bubble falls back to the icon on reload, which is acceptable.
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages))
+    const toSave = messages.map(m =>
+      m.attachmentPreviews
+        ? { ...m, attachmentPreviews: m.attachmentPreviews.map(({ previewUrl: _url, ...rest }) => rest) }
+        : m
+    )
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(toSave))
   }, [messages])
 
   // Check MediaRecorder support
@@ -616,6 +625,17 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       setAttachmentError(`Only the first ${remaining} file${remaining === 1 ? '' : 's'} were added — limit is ${MAX_ATTACHMENTS} per message.`)
     }
 
+    // Scale compression target down when multiple images are being added so the
+    // combined request stays within budget. Each image gets an equal share of
+    // whatever base64 budget remains after accounting for already-pending files.
+    const imageCountInBatch = toProcess.filter(f => getFileType(f) === 'image').length
+    const existingBase64Sum = pendingAttachments.reduce((sum, a) => sum + a.base64.length, 0)
+    const availableBase64 = REQUEST_BUDGET_BYTES - 200_000 - existingBase64Sum
+    const perImageTargetBytes = Math.min(
+      TARGET_OUTPUT_BYTES,
+      Math.floor((availableBase64 / Math.max(imageCountInBatch, 1)) * 0.75),
+    )
+
     const newAttachments: typeof pendingAttachments = []
 
     for (const file of toProcess) {
@@ -629,7 +649,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
       if (fileType === 'image') {
         try {
-          const { base64, mimeType } = await compressImage(file)
+          const { base64, mimeType } = await compressImage(file, perImageTargetBytes)
           // Check combined budget with everything so far
           const allBase64 = [...pendingAttachments, ...newAttachments].map(a => a.base64).concat(base64)
           if (estimateCombinedRequestBytes(allBase64) > REQUEST_BUDGET_BYTES) {
@@ -726,16 +746,17 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         content: userContent,
         created_at: new Date().toISOString(),
         ...(opts?.hidden ? { hidden: true } : {}),
-        // Persist only display metadata — no binaries
+        // Persist only display metadata — no binaries.
+        // previewUrl is a data URI (not the blob URL) so the thumbnail survives
+        // blob revocation. It is stripped before localStorage serialization.
         ...(newAtts && newAtts.length > 0
-          ? { attachmentPreviews: newAtts.map(a => ({ type: a.fileType, name: a.name, ...(a.previewUrl ? { previewUrl: a.previewUrl } : {}) })) }
+          ? { attachmentPreviews: newAtts.map(a => ({ type: a.fileType, name: a.name, ...(a.fileType === 'image' && a.base64 ? { previewUrl: `data:${a.mimeType};base64,${a.base64}` } : {}) })) }
           : {}),
       }
 
       const updatedMessages = [...messages, userMessage]
       setMessages(updatedMessages)
       setIsLoading(true)
-      setInput('')
 
       // Determine which attachment binaries go to the API this turn:
       // - New attachments → replace the active group for this and future turns
@@ -799,8 +820,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         }
       } catch (err) {
         console.error('Chat error:', err)
+        // Roll back the user message so retry doesn't create a duplicate.
+        // The error bubble is anchored to the pre-send history.
         setMessages([
-          ...updatedMessages,
+          ...messages,
           {
             id: crypto.randomUUID(),
             role: 'assistant',
@@ -921,9 +944,15 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     // and isLoading being reflected in the DOM.
     sendInProgressRef.current = true
 
-    // Snapshot pending attachments — clear only after a successful send
+    // Snapshot before clearing so we can restore on failure.
     const atts = pendingAttachments
     setAttachmentError(null)
+
+    // Clear the composer immediately — text and attachments vanish as soon as
+    // the user taps Send, before the network round-trip completes.
+    // Blob URLs are NOT revoked: the sent message bubble still references them.
+    setInput('')
+    setPendingAttachments([])
 
     try {
       const succeeded = await sendMessage(
@@ -933,13 +962,17 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           : undefined,
       )
 
-      // Always clear staged attachments after a send attempt that included them,
-      // regardless of success or failure. On failure this breaks the retry loop
-      // where the same images keep being re-sent and consistently failing.
-      // Note: blob URLs are NOT revoked here — they are kept alive so the image
-      // thumbnail remains visible in the sent message bubble for the session.
-      if (atts.length > 0) {
-        setPendingAttachments([])
+      if (succeeded) {
+        // Message bubble now uses a data URI — the blob URL is no longer needed.
+        // Revoke here (not on failure) so the restored composer still has
+        // valid preview thumbnails for retry.
+        atts.forEach(a => { if (a.previewUrl) URL.revokeObjectURL(a.previewUrl) })
+      } else {
+        // Restore composer so the user can retry without retyping.
+        // sendMessage already rolled back the user message from history,
+        // so a retry won't create a duplicate.
+        setInput(trimmed)
+        setPendingAttachments(atts)
       }
     } finally {
       sendInProgressRef.current = false

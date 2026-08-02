@@ -6,7 +6,8 @@ export type Message = {
   hidden?: boolean
   // Display-only metadata for attached files (up to 4). Contains no binary —
   // filenames are stored locally for badges and are never transmitted to the server.
-  // previewUrl is a session-only blob URL for image thumbnails; it is not persisted.
+  // previewUrl is a session-only data URI for image thumbnails; it is stripped
+  // before localStorage serialization so large base64 is never persisted.
   attachmentPreviews?: Array<{ type: 'image' | 'pdf'; name: string; previewUrl?: string }>
 }
 

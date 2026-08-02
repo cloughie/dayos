@@ -17,7 +17,7 @@ const MAX_SOURCE_IMAGE_BYTES = 20 * 1024 * 1024 // 20 MB — beyond this, canvas
 const MAX_PDF_BYTES = 3 * 1024 * 1024           // 3 MB raw → ~4 MB base64 → stays under Vercel's 4.5 MB limit
 
 // Compression targets
-const TARGET_OUTPUT_BYTES = 1.5 * 1024 * 1024   // 1.5 MB → ~2 MB base64
+export const TARGET_OUTPUT_BYTES = 1.5 * 1024 * 1024   // 1.5 MB → ~2 MB base64
 const MAX_LONG_EDGE_PX = 1920
 const FALLBACK_LONG_EDGE_PX = 1280
 
@@ -89,6 +89,7 @@ export function validateFile(file: File): { ok: true } | { ok: false; error: Val
  */
 export async function compressImage(
   file: File,
+  targetBytes = TARGET_OUTPUT_BYTES,
 ): Promise<{ base64: string; mimeType: 'image/jpeg' | 'image/png' }> {
   const bitmap = await createImageBitmap(file)
 
@@ -105,27 +106,27 @@ export async function compressImage(
   // PNG input: try lossless first to preserve text sharpness
   if (file.type === 'image/png') {
     const pngBlob = await canvasToBlob(canvas, 'image/png')
-    if (pngBlob && pngBlob.size <= TARGET_OUTPUT_BYTES) {
+    if (pngBlob && pngBlob.size <= targetBytes) {
       return { base64: await blobToBase64(pngBlob), mimeType: 'image/png' }
     }
   }
 
-  // Adaptive JPEG quality
-  for (const quality of [0.92, 0.85, 0.78]) {
+  // Adaptive JPEG quality — extended range so tight multi-image targets are reachable
+  for (const quality of [0.92, 0.85, 0.78, 0.70, 0.60]) {
     const blob = await canvasToBlob(canvas, 'image/jpeg', quality)
-    if (blob && blob.size <= TARGET_OUTPUT_BYTES) {
+    if (blob && blob.size <= targetBytes) {
       return { base64: await blobToBase64(blob), mimeType: 'image/jpeg' }
     }
   }
 
-  // Final fallback: smaller canvas
+  // Final fallback: smaller canvas at moderate quality
   const scale2 = Math.min(1, FALLBACK_LONG_EDGE_PX / Math.max(w, h))
   const canvas2 = document.createElement('canvas')
   canvas2.width = Math.round(w * scale2)
   canvas2.height = Math.round(h * scale2)
   canvas2.getContext('2d')!.drawImage(canvas, 0, 0, canvas2.width, canvas2.height)
 
-  const blob = await canvasToBlob(canvas2, 'image/jpeg', 0.82)
+  const blob = await canvasToBlob(canvas2, 'image/jpeg', 0.72)
   return { base64: await blobToBase64(blob!), mimeType: 'image/jpeg' }
 }
 

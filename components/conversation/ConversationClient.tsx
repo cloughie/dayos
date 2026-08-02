@@ -780,7 +780,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
             messages: updatedMessages.map(({ attachmentPreviews: _ap, ...m }) => m),
             ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
             source: 'sendMessage',
-            _debug: { newAtts: newAtts?.length ?? 0, active: activeAttachments.length, apiAttachments: apiAttachments.length },
           }),
         })
 

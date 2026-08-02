@@ -47,7 +47,8 @@ export async function POST(request: Request) {
       messages,
       attachments,
       source,
-    }: { messages: Message[]; attachments?: AttachmentPayload[]; source?: string } = await request.json()
+      _debug,
+    }: { messages: Message[]; attachments?: AttachmentPayload[]; source?: string; _debug?: Record<string, number> } = await request.json()
 
     // Consent guard — authoritative check before any Anthropic call
     {
@@ -81,15 +82,16 @@ export async function POST(request: Request) {
       console.error('[Memory] Failed to load memories:', err)
     }
 
-    console.log(`[Attach:server] received messages=${messages.length} attachments=${attachments?.length ?? 0}`)
+    console.log(`[Attach] client: newAtts=${_debug?.newAtts ?? '?'} active=${_debug?.active ?? '?'} apiAttachments=${_debug?.apiAttachments ?? '?'}`)
+    console.log(`[Attach] server received: messages=${messages.length} attachments=${attachments?.length ?? 0}`)
     if (attachments?.length) {
-      attachments.forEach((a, i) => console.log(`[Attach:server]   [${i}] msgId=${a.messageId.slice(-6)} mime=${a.mimeType} b64len=${a.base64.length}`))
+      attachments.forEach((a, i) => console.log(`[Attach]   [${i}] msgId=…${a.messageId.slice(-6)} mime=${a.mimeType} b64len=${a.base64.length}`))
     }
 
     const history = buildHistory(messages, attachments)
 
     const imageBlockCount = history.reduce((n, m) => n + (Array.isArray(m.content) ? m.content.filter(b => b.type === 'image' || b.type === 'document').length : 0), 0)
-    console.log(`[Attach:server] history items=${history.length} image/doc blocks=${imageBlockCount}`)
+    console.log(`[Attach] buildHistory: items=${history.length} image/doc blocks=${imageBlockCount}`)
 
     const nameContext = preferredName ? `User preferred name: ${preferredName}` : ''
     const systemPrompt = [nameContext, memoryContext].filter(Boolean).join('\n\n')

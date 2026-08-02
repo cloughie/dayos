@@ -768,8 +768,6 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
         ? activeAttachments.map(a => ({ ...a }))
         : []
 
-      console.log(`[Attach:client] newAtts=${newAtts?.length ?? 0} active=${activeAttachments.length} apiAttachments=${apiAttachments.length} msgId=${userMessage.id.slice(-6)}`)
-
       let succeeded = false
       try {
         const response = await fetch('/api/chat', {
@@ -782,6 +780,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
             messages: updatedMessages.map(({ attachmentPreviews: _ap, ...m }) => m),
             ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
             source: 'sendMessage',
+            _debug: { newAtts: newAtts?.length ?? 0, active: activeAttachments.length, apiAttachments: apiAttachments.length },
           }),
         })
 

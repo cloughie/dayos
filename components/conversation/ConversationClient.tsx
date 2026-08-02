@@ -774,7 +774,10 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            messages: updatedMessages,
+            // Strip attachmentPreviews before sending — they contain data URIs
+            // that can be MB-scale and are pure display metadata the server ignores.
+            // Omitting them keeps the request body well under Vercel's 4.5 MB limit.
+            messages: updatedMessages.map(({ attachmentPreviews: _ap, ...m }) => m),
             ...(apiAttachments.length > 0 ? { attachments: apiAttachments } : {}),
             source: 'sendMessage',
           }),

@@ -143,13 +143,13 @@ describe('single attachment (array API)', () => {
     plainUserMsgs.forEach(m => expect(typeof m.content).toBe('string'))
   })
 
-  it('uses (attachment) text when user content is empty string', () => {
+  it('omits text block when user content is empty string (avoids confusing model)', () => {
     const msgs = [user('u1', ''), assistant('a1', 'hi'), user('u2', '')]
     const history = buildHistory(msgs, [{ messageId: 'u2', base64: 'b64', mimeType: 'image/png' }])
     const imgMsg = history.find(m => Array.isArray(m.content)) as { role: 'user'; content: Array<{ type: string; text?: string }> }
     expect(imgMsg).toBeDefined()
     const textBlock = imgMsg!.content.find(b => b.type === 'text')
-    expect(textBlock?.text).toBe('(attachment)')
+    expect(textBlock).toBeUndefined()
   })
 
   it('attachment not applied when messageId is not in the sliced window', () => {
@@ -305,7 +305,7 @@ describe('multiple attachments per message', () => {
     expect(history.every(m => !Array.isArray(m.content))).toBe(true)
   })
 
-  it('(attachment) placeholder used when content is empty with multiple attachments', () => {
+  it('omits text block when content is empty with multiple attachments', () => {
     const msgs = [user('u1', '')]
     const attachments: AttachmentPayload[] = [
       { messageId: 'u1', base64: 'b1', mimeType: 'image/jpeg' },
@@ -313,8 +313,8 @@ describe('multiple attachments per message', () => {
     ]
     const history = buildHistory(msgs, attachments)
     const blocks = history[0].content as Array<{ type: string; text?: string }>
-    const textBlock = blocks.find(b => b.type === 'text')
-    expect(textBlock?.text).toBe('(attachment)')
+    expect(blocks.filter(b => b.type === 'image')).toHaveLength(2)
+    expect(blocks.find(b => b.type === 'text')).toBeUndefined()
   })
 })
 

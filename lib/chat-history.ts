@@ -66,7 +66,10 @@ export function buildHistory(
             : { type: 'image', source: { type: 'base64', media_type: mediaType, data: att.base64 } }
         contentBlocks.push(block)
       }
-      contentBlocks.push({ type: 'text', text: msg.content || '(attachment)' })
+      // Only add a text block when the user actually typed something.
+      // An empty fallback like "(attachment)" confuses the model into thinking
+      // there is an additional attachment beyond the image blocks above.
+      if (msg.content) contentBlocks.push({ type: 'text', text: msg.content })
       return { role: 'user', content: contentBlocks }
     }
     if (msg.role === 'assistant') {

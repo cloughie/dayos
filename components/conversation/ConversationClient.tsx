@@ -75,6 +75,46 @@ Allow me first to get my ideas and thoughts out — and then work with me to sha
 
 When revising a plan — including any change to timing, sequencing, priorities, or what happens next in the day — always return the full updated plan, not just the changed section, so it can be saved cleanly.`
 
+const PM_CHECKIN_PROMPT = `Let's check-in.
+
+As a reminder, let's cover this in three stages:
+
+The order of the 3 stages is important.
+
+First I want to clear out how I am feeling emotionally.
+Second, I want to reflect and learn from yesterday and today so far.
+Third, I want to think about what I need from the rest of today.
+
+Push my thinking a bit. Don't just reflect — tighten it and say the thing clearly when you see it.
+
+For each stage, start with a question and let me fill in the blanks.
+
+Never assume or start to build plans without my input first.
+
+1. How am I feeling?
+
+Start by asking me for:
+* a score out of 10
+* a few words describing my state
+
+Then analyse my answer, reflect patterns, and ask clarifying questions if helpful.
+
+2. How have things been going?
+
+Help me reflect on yesterday and today so far. Identify wins, friction points, and anything that is still carrying forward.
+
+3. What do I need from the rest of today?
+
+Allow me first to get my ideas and thoughts out — and then work with me to shape a simple plan for the rest of the day.
+
+Keep it proportionate to how much of the day is left. Don't force a full-day plan when it no longer makes sense.
+
+When revising a plan — including any change to timing, sequencing, priorities, or what happens next in the day — always return the full updated plan, not just the changed section, so it can be saved cleanly.`
+
+function isAfter2pm() {
+  return new Date().getHours() >= 14
+}
+
 // ─── Plan detection ────────────────────────────────────────────────────────
 // Returns true when an assistant message contains a finalised daily plan.
 // Requires at least 2 of 4 structural signals to avoid false positives during
@@ -291,6 +331,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   const [showConsentOverlay, setShowConsentOverlay] = useState(false)
   const [streak, setStreak] = useState<number | null>(null)
   const [checkedInDays, setCheckedInDays] = useState<string[]>([])
+  const [showAfternoonChoice, setShowAfternoonChoice] = useState(false)
 
   // ── Attachment state ────────────────────────────────────────────────────────
   // pendingAttachments: ephemeral composing state — up to 4 attachments per message.
@@ -423,7 +464,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
       if (consent === null) {
         setShowConsentOverlay(true)
       } else if (consent === true && autoStart && !hasStoredMessages) {
-        startCheckIn()
+        handleStartCheckIn()
       }
 
       // Push prompt — only for web users who haven't been asked
@@ -477,7 +518,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   useEffect(() => {
     if (startNewDayRef.current && messages.length === 0 && !isLoading) {
       startNewDayRef.current = false
-      startCheckIn()
+      handleStartCheckIn()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [messages, isLoading])
@@ -936,6 +977,94 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
     }
   }
 
+  async function startClearMyHead() {
+    if (isLoading) return
+    hapticMedium()
+
+    const now = new Date()
+    const time = `${String(now.getHours()).padStart(2, '0')}.${String(now.getMinutes()).padStart(2, '0')}`
+    const day = now.toLocaleDateString('en-US', { weekday: 'long' })
+    const monthDate = now.toLocaleDateString('en-US', { month: 'long', day: 'numeric' })
+    const content = `${PM_CHECKIN_PROMPT}\n\nIt's ${time}, ${day}, ${monthDate}\n\nSo, let's check-in.`
+
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content,
+      created_at: new Date().toISOString(),
+      hidden: true,
+    }
+
+    const initialHistory: Message[] = [userMessage]
+
+    setMessages(initialHistory)
+    setIsLoading(true)
+    setStarted(true)
+    setShowAfternoonChoice(false)
+    trackAnalyticsEvent('daily_checkin_started').then(() => fetchStreak())
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: initialHistory,
+          source: 'startClearMyHead',
+        }),
+      })
+
+      if (!response.ok) throw new Error('Failed to get response')
+
+      const data = await response.json()
+      const aiMessage: Message = {
+        id: crypto.randomUUID(),
+        role: 'assistant',
+        content: stripUserLines(data.message),
+        created_at: new Date().toISOString(),
+      }
+
+      hapticLight()
+      setMessages([userMessage, aiMessage])
+    } catch (err) {
+      console.error('Chat error:', err)
+      setMessages([
+        userMessage,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: 'Sorry, something went wrong. Please try again.',
+          created_at: new Date().toISOString(),
+        },
+      ])
+    } finally {
+      setIsLoading(false)
+      if (!(window as any).Capacitor?.isNativePlatform?.()) {
+        requestAnimationFrame(() => textareaRef.current?.focus({ preventScroll: true }))
+      }
+    }
+
+    if (!hasExistingData) {
+      const supabase = createClient()
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) {
+          supabase
+            .from('user_profiles')
+            .update({ has_started_checkin: true })
+            .eq('id', user.id)
+            .then(() => {})
+        }
+      })
+    }
+  }
+
+  function handleStartCheckIn() {
+    if (isAfter2pm()) {
+      setShowAfternoonChoice(true)
+    } else {
+      startCheckIn()
+    }
+  }
+
   async function handleSend() {
     const trimmed = input.trim()
     if ((!trimmed && pendingAttachments.length === 0) || isLoading) return
@@ -1113,21 +1242,46 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
 
         {messages.length === 0 && !isLoading && !started && (
           <div className="h-full flex flex-col items-center justify-center text-center px-6 pb-12">
-            {hasExistingData ? (
-              <p className="text-white font-medium text-base mb-8">Ready to start today&apos;s check-in?</p>
+            {showAfternoonChoice ? (
+              <>
+                <p className="text-white font-medium text-base mb-2">How would you like to check in?</p>
+                <p className="text-zinc-500 text-sm mb-8">It&apos;s afternoon — pick whichever fits.</p>
+                <div className="flex flex-col gap-3 w-full max-w-xs">
+                  <button
+                    type="button"
+                    onClick={startCheckIn}
+                    className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                  >
+                    Full check-in
+                  </button>
+                  <button
+                    type="button"
+                    onClick={startClearMyHead}
+                    className="bg-zinc-800 text-white rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-700 active:bg-zinc-600 transition-colors"
+                  >
+                    Clear my head
+                  </button>
+                </div>
+              </>
             ) : (
               <>
-                <p className="text-white font-medium text-base mb-1">Ready to start your first check-in?</p>
-                <p className="text-zinc-500 text-sm mb-8">Best experienced properly in the morning when planning your day.</p>
+                {hasExistingData ? (
+                  <p className="text-white font-medium text-base mb-8">Ready to start today&apos;s check-in?</p>
+                ) : (
+                  <>
+                    <p className="text-white font-medium text-base mb-1">Ready to start your first check-in?</p>
+                    <p className="text-zinc-500 text-sm mb-8">Best experienced properly in the morning when planning your day.</p>
+                  </>
+                )}
+                <button
+                  type="button"
+                  onClick={handleStartCheckIn}
+                  className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
+                >
+                  Start check-in
+                </button>
               </>
             )}
-            <button
-              type="button"
-              onClick={startCheckIn}
-              className="bg-white text-zinc-950 rounded-xl px-5 py-2.5 text-sm font-semibold hover:bg-zinc-100 active:bg-zinc-200 transition-colors"
-            >
-              Start check-in
-            </button>
           </div>
         )}
 

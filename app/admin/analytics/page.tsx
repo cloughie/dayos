@@ -48,10 +48,10 @@ async function getAnalyticsData() {
       .from('user_profiles')
       .select('id, email, preferred_name, created_at')
       .order('created_at', { ascending: false }),
-    // app_opened drives DAU, WAU, Last active, Days active
+    // app_opened drives DAU, WAU, Last active, Days active, and platform breakdown
     supabase
       .from('analytics_events')
-      .select('user_id, created_at')
+      .select('user_id, created_at, metadata')
       .eq('event_type', 'app_opened'),
     // behavioural events for per-user stats only
     supabase
@@ -77,6 +77,8 @@ async function getAnalyticsData() {
   const dauSet = new Set<string>()
   const wauSet = new Set<string>()
   const openStatsMap = new Map<string, { lastOpened: string | null; dates: Set<string> }>()
+  const iosUsers = new Set<string>()
+  const webUsers = new Set<string>()
 
   for (const event of openEvents ?? []) {
     if (!openStatsMap.has(event.user_id)) {
@@ -87,6 +89,9 @@ async function getAnalyticsData() {
     s.dates.add(event.created_at.split('T')[0])
     if (event.created_at >= `${todayUtc}T00:00:00Z`) dauSet.add(event.user_id)
     if (event.created_at >= `${weekAgoUtc}T00:00:00Z`) wauSet.add(event.user_id)
+    const platform = (event.metadata as any)?.platform
+    if (platform === 'ios') iosUsers.add(event.user_id)
+    else if (platform === 'web') webUsers.add(event.user_id)
   }
 
   // Behavioural stats (check-ins, plans, returns) from separate event stream
@@ -133,6 +138,8 @@ async function getAnalyticsData() {
     totalUsers: totalUsers ?? 0,
     plansSavedToday: plansSavedToday ?? 0,
     returnsToday: returnsToday ?? 0,
+    iosUsers: iosUsers.size,
+    webUsers: webUsers.size,
     userRows,
   }
 
@@ -150,13 +157,15 @@ export default async function AnalyticsPage() {
       </div>
 
       {/* Top metrics */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '16px', marginBottom: '40px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '16px', marginBottom: '40px' }}>
         {[
           { label: 'DAU', value: data.dau },
           { label: 'WAU', value: data.wau },
           { label: 'Total users', value: data.totalUsers },
           { label: 'Plans saved today', value: data.plansSavedToday },
           { label: 'Same-day returns today', value: data.returnsToday },
+          { label: 'iOS users', value: data.iosUsers },
+          { label: 'Web users', value: data.webUsers },
         ].map(({ label, value }) => (
           <div key={label} style={{ background: '#18181b', border: '1px solid #27272a', borderRadius: '8px', padding: '16px' }}>
             <div style={{ fontSize: '28px', fontWeight: 700, color: '#fff', lineHeight: 1 }}>{value}</div>

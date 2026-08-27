@@ -393,7 +393,8 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
   // Record app open once per calendar day — drives DAU/WAU on the dashboard.
   // If the user arrived from a broadcast push, also record which broadcast they opened.
   useEffect(() => {
-    trackAnalyticsEvent('app_opened')
+    const platform = (window as any).Capacitor?.isNativePlatform?.() ? 'ios' : 'web'
+    trackAnalyticsEvent('app_opened', { platform })
     if (broadcastId) {
       trackAnalyticsEvent('push_broadcast_opened', { broadcast_id: broadcastId })
     }

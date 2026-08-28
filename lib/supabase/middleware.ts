@@ -29,10 +29,20 @@ export async function updateSession(request: NextRequest) {
     }
   )
 
-  // Refresh session — do not remove this line
+  // getSession() reads the JWT from the cookie locally — no network request in the common case.
+  // It only hits the network when the access token is within 90 s of expiry to refresh it.
+  //
+  // We previously called getUser() here, which made a GET /auth/v1/user request to Supabase
+  // on every single page load. When Supabase auth latency spiked above Vercel's ~1.5 s edge
+  // middleware limit this caused MIDDLEWARE_INVOCATION_TIMEOUT for all users simultaneously.
+  //
+  // The authoritative getUser() call remains in each protected page server component
+  // (app/conversation/page.tsx etc.), which runs in Node.js with a 60 s timeout and is the
+  // real security gate. The middleware redirect is a routing convenience only.
   const {
-    data: { user },
-  } = await supabase.auth.getUser()
+    data: { session },
+  } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   return { supabaseResponse, user }
 }

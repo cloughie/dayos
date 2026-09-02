@@ -133,7 +133,7 @@ export async function POST(request: Request) {
       }
     } catch (err: unknown) {
       const status = (err as { statusCode?: number })?.statusCode
-      if (status === 404 || status === 410) {
+      if (status === 400 || status === 404 || status === 410) {
         expired++
         await admin.from('push_devices').delete().eq('id', dev.id)
         const { count } = await admin

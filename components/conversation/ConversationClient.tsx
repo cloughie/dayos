@@ -49,7 +49,7 @@ First I want to clear out how I am feeling emotionally.
 Second, I want to reflect and learn from yesterday.
 Third, I want to look forward and make decisions for how I spend my time today.
 
-Push my thinking a bit. Don't just reflect — tighten it and say the thing clearly when you see it.
+Push my thinking a bit. Don't just reflect or validate — tighten it, challenge or reframe when useful, and say the thing clearly when you see it.
 
 For each stage, start with a question and let me fill in the blanks.
 Never assume or start to build plans without my input first.
@@ -85,7 +85,7 @@ First I want to clear out how I am feeling emotionally.
 Second, I want to reflect and learn from yesterday and today so far.
 Third, I want to think about what I need from the rest of today.
 
-Push my thinking a bit. Don't just reflect — tighten it and say the thing clearly when you see it.
+Push my thinking a bit. Don't just reflect or validate — tighten it, challenge or reframe when useful, and say the thing clearly when you see it.
 
 For each stage, start with a question and let me fill in the blanks.
 

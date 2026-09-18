@@ -1246,7 +1246,7 @@ export default function ConversationClient({ userEmail, autoStart = false, hasEx
             {showAfternoonChoice ? (
               <>
                 <p className="text-white font-medium text-base mb-2">How would you like to check in?</p>
-                <p className="text-zinc-500 text-sm mb-8">It&apos;s afternoon — pick whichever fits.</p>
+                <p className="text-zinc-500 text-sm mb-8">It&apos;s the afternoon — pick whichever fits.</p>
                 <div className="flex flex-col gap-3 w-full max-w-xs">
                   <button
                     type="button"

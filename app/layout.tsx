@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import { Inter } from 'next/font/google'
+import Script from 'next/script'
 import './globals.css'
 import ServiceWorkerInit from '@/components/ServiceWorkerInit'
 import CapacitorInit from '@/components/CapacitorInit'
@@ -56,6 +57,18 @@ export default function RootLayout({
         <link rel="apple-touch-startup-image" media="screen and (device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/iphone-8.png" />
       </head>
       <body className="bg-zinc-950 text-white antialiased">
+        <Script
+          src="https://www.googletagmanager.com/gtag/js?id=G-5DRV3RYV6G"
+          strategy="afterInteractive"
+        />
+        <Script id="google-analytics" strategy="afterInteractive">
+          {`
+            window.dataLayer = window.dataLayer || [];
+            function gtag(){dataLayer.push(arguments);}
+            gtag('js', new Date());
+            gtag('config', 'G-5DRV3RYV6G');
+          `}
+        </Script>
         <ServiceWorkerInit />
         <CapacitorInit />
         {children}
